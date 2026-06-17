@@ -1,0 +1,493 @@
+Document 8 - IAM Distribution V1.0 Developer Acceptance Checklist
+
+Full detailed consolidated version
+
+Status: Active working developer acceptance checklist for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+07 IAM Sample Test Data and Expected Results v1.1 - active scenario and expected-results foundation
+
+This numbered package document should be used together with those active control files. The acceptance checklist depends on the current build brief, the current UAT workbook, and the current sample scenario/expected-results document.
+
+2. Purpose and Acceptance Standard
+
+This document defines the acceptance checklist for the first working IAM-Distribution V1.0 build. IAM is accepted only if it can surface priorities correctly, apply workflow discipline correctly, protect visibility and restricted notes, preserve archive/history rules, and pass the active UAT workbook and sample scenario expectations.
+
+Acceptance means the build behaves according to the approved IAM rules, not merely that screens exist.
+
+A working UI is not enough if the ranking, workflow, visibility, or archive logic is wrong.
+
+Controlled validation readiness requires that major blockers are resolved and known limitations are documented honestly.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Readiness Levels
+
+Readiness levels
+
+Level
+
+Meaning
+
+Required before
+
+Level 1 - Documentation Ready
+
+Build brief, UAT workbook, package docs, and acceptance framework are complete enough to guide build
+
+Package-control use
+
+Level 2 - Cursor Build Ready
+
+Package aligned, no major conflicting logic, staged handoff ready
+
+Cursor/developer handoff
+
+Level 3 - Functional Test Ready
+
+First build exists and core screens/workflow are usable
+
+Formal UAT execution
+
+Level 4 - Controlled Validation Ready
+
+Major blockers resolved, UAT materially passes, outputs safe enough for controlled validation
+
+Controlled validation use
+
+Level 5 - Production Ready - Future
+
+Future state after validation, broader hardening, support, and production readiness work
+
+Future scope
+
+5. Acceptance Status Labels and Categories
+
+Status labels
+
+Status
+
+Meaning
+
+Pass
+
+Requirement works as expected
+
+Pass with Notes
+
+Works but minor limitation remains
+
+Fail - Correction Required
+
+Must be fixed before acceptance
+
+Blocked
+
+Cannot test or cannot proceed because of blocker
+
+Not Applicable
+
+Does not apply to this build/state
+
+Requirement categories
+
+Category
+
+Meaning
+
+Critical Blocker
+
+Must pass before controlled validation
+
+Required for Validation
+
+Needed for controlled validation readiness
+
+Build-Ready Requirement
+
+Needed before Cursor/developer handoff is considered properly ready
+
+Optional / Deferrable
+
+Useful but not required for the current validation-stage build
+
+6. Critical Blockers
+
+Top-2 featured model fails materially.
+
+Rejected top priorities auto-replace with lower-ranked items in the same cycle.
+
+Holdovers are not separated from new priorities.
+
+Grouped actions allow multiple owners or multiple action types in one grouped action.
+
+Management-only protected notes leak into ordinary non-management views.
+
+Protected content leaks into ordinary exports.
+
+Completed or archived items can reopen in V1.
+
+Low-confidence issues are presented as strong certainty or false precision.
+
+Material management-priority item behavior fails or disappears improperly.
+
+Material-event 3rd-priority behavior breaks the approved top-2 model.
+
+7. Build Area Acceptance Checklist
+
+Application Shell / Run Setup
+
+Acceptance requirement
+
+Status
+
+One-company-per-workspace behavior preserved
+
+Pending
+
+Review cycle context can be created/opened
+
+Pending
+
+Run/version context visible enough for validation use
+
+Pending
+
+Validation-stage boundary preserved in setup flow
+
+Pending
+
+Priority Surfacing
+
+Acceptance requirement
+
+Status
+
+Top 2 featured priorities surface correctly when supported
+
+Pending
+
+Cash-led ranking works by default
+
+Pending
+
+Service/operational override only occurs when clearly more dangerous
+
+Pending
+
+Management-priority item handling works
+
+Pending
+
+Material-event 3rd-priority handling works
+
+Pending
+
+Approval / Rejection / Assignment
+
+Acceptance requirement
+
+Status
+
+Featured priorities can be approved in-cycle
+
+Pending
+
+Featured priorities can be rejected for cycle
+
+Pending
+
+Rejected top items do not auto-replace with lower-ranked items in same cycle
+
+Pending
+
+Owner and due/review date required before leaving featured status
+
+Pending
+
+Awaiting-acceptance state works where applicable
+
+Pending
+
+Holdover Behavior
+
+Acceptance requirement
+
+Status
+
+Unresolved items move into holdover correctly
+
+Pending
+
+Holdovers remain separate from new priorities
+
+Pending
+
+Holdover continuation does not invalidate weekly cycle
+
+Pending
+
+Grouped-Action Behavior
+
+Acceptance requirement
+
+Status
+
+Grouping occurs only for one true business decision case
+
+Pending
+
+One owner and one action type preserved
+
+Pending
+
+Partial child resolution visible
+
+Pending
+
+Grouped action remains open until all children resolved/removed
+
+Pending
+
+No separate grouped-action screen in V1
+
+Pending
+
+Visibility / Protected-Note Behavior
+
+Acceptance requirement
+
+Status
+
+Management-only notes protected from ordinary users
+
+Pending
+
+Restricted content excluded from ordinary non-management views
+
+Pending
+
+Restricted content excluded from ordinary exports
+
+Pending
+
+Internal reviewer context can show deeper detail where allowed
+
+Pending
+
+Output / Export Behavior
+
+Acceptance requirement
+
+Status
+
+Management output is plain-English and action-oriented
+
+Pending
+
+Internal reviewer output shows deeper control detail where appropriate
+
+Pending
+
+Archive/history output acts as useful history
+
+Pending
+
+Conditional Keystroke-targeted export obeys .txt tab-delimited rule if applicable
+
+Pending
+
+Completion / Archive Behavior
+
+Acceptance requirement
+
+Status
+
+Completion is not automatic from simple progress metric alone
+
+Pending
+
+Completed item visible briefly before archive
+
+Pending
+
+Archived item never reopens in V1
+
+Pending
+
+Later similar issue becomes a new action with new ID
+
+Pending
+
+UAT / Sample Scenario Behavior
+
+Acceptance requirement
+
+Status
+
+Active UAT workbook can be executed against the build
+
+Pending
+
+Sample scenario set from file 07 behaves as expected
+
+Pending
+
+Critical scenario failures are documented and corrected
+
+Pending
+
+8. Final Sign-Off and Acceptance Summary
+
+Sign-off roles
+
+Role
+
+Sign-off area
+
+Product / Business Reviewer
+
+Product logic, owner usefulness, management clarity
+
+Developer
+
+Build completion, technical behavior, known limitations
+
+Internal Reviewer / Management Reviewer
+
+Workflow, visibility, archive, acceptance discipline
+
+Data / Mapping Reviewer if applicable
+
+Mapping/source support and limitations
+
+Readiness summary checks
+
+Readiness area
+
+Status
+
+Active build brief included
+
+Pending
+
+Active UAT workbook included
+
+Pending
+
+Active sample test/expected-results file included
+
+Pending
+
+Critical blockers resolved or documented
+
+Pending
+
+Known limitations documented honestly
+
+Pending
+
+Product/business sign-off completed
+
+Pending
+
+Developer sign-off completed
+
+Pending
+
+Internal reviewer sign-off completed
+
+Pending
+
+9. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes stronger acceptance standard, readiness levels, critical blockers, structured acceptance areas, active control-file linkage, status labels/categories, sign-off summary, and internal review summary.
+
+Gaps
+
+Pass with carry-forward
+
+Future production-readiness hardening remains outside current validation-stage scope.
+
+Errors
+
+Pass
+
+Validation-stage rules, no-reopen logic, protected-visibility rules, and top-2/rejection-cycle logic preserved.
+
+Recommendations
+
+Included
+
+Use this file as the acceptance-control backbone together with the active build brief, active UAT workbook, and active sample test/expected-results file.
+
+Ease of use
+
+Pass
+
+Document now functions as a real acceptance checklist rather than a short draft checklist.
+
+
+
+10. Playbook-Library Acceptance Additions
+
+The Inventory Cash Recovery Action Playbook Library must be included in the active IAM handoff set.
+
+IAM must be able to reference or use the playbook library for trapped-cash/excess inventory actions.
+
+Controlled Runoff must exist as a distinct accepted playbook path, not merely an implied stop-buy action.
+
+Follow-Up Measurement must exist as a distinct accepted playbook path after material recovery actions.
+
+Acceptance review should confirm that playbook recommendations or references do not violate IAM boundary rules.

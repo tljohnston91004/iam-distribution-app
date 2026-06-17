@@ -1,0 +1,1373 @@
+Document 3 - IAM Distribution V1.0 Data Model and Field Mapping Guide
+
+Full detailed consolidated version
+
+Status: Active working data model and field mapping guide for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package document should be used together with those active control files. The numbered package gives the staged package structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+2. Purpose and Data Principle
+
+This document defines the IAM data backbone for V1 validation. Developer and Cursor should use it to build database tables, import mapping, validation, source tracking, confidence logic, workflow input snapshots, and archive/history support.
+
+IAM separates source-system fields from IAM standard data domains.
+
+Source system affects mapping confidence, freshness, and evidence strength, not the core IAM workflow rules.
+
+Blank or missing data must not be treated as zero unless it is explicitly confirmed that no record exists.
+
+Weak or partial data should affect confidence, suppression, and review posture rather than creating false precision.
+
+The validation-stage build should proceed using supportable mapped data and should not stall waiting for perfect final Keystroke/AIMS source closure.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Field Requirement Levels and Field Types
+
+Requirement levels
+
+Requirement level
+
+Meaning
+
+Effect if missing
+
+Required
+
+Needed for responsible IAM run/workflow behavior
+
+May block run or affected action area
+
+Strongly Preferred
+
+Improves decision quality and confidence
+
+May reduce confidence or create limitation
+
+Optional
+
+Helpful context
+
+Does not block core validation workflow
+
+Conditional
+
+Required only when a feature or source applies
+
+Blocks affected feature if missing
+
+Field types
+
+Field type
+
+Use for
+
+UUID / ID
+
+System IDs and record links
+
+Text
+
+Names, labels, codes
+
+Long Text
+
+Notes and explanations
+
+Enum
+
+Controlled statuses and classes
+
+Date
+
+Review, due, completed, archived, freshness dates
+
+DateTime
+
+Upload/change timestamps
+
+Decimal
+
+Amounts, percentages, estimated impacts
+
+Integer
+
+Quantities, ranks, counts, days
+
+Boolean
+
+Yes/no flags
+
+5. Controlled Enums / Standard Status Lists
+
+Workflow State
+
+Value
+
+Meaning
+
+surfaced / featured
+
+Surfaced for weekly management review
+
+approved
+
+Approved for assignment
+
+rejected for cycle
+
+Rejected in current cycle; may reappear later
+
+awaiting acceptance
+
+Assigned but not yet accepted/acknowledged
+
+active
+
+Accepted and in progress
+
+holdover
+
+Still-open item carried into later cycle
+
+paused
+
+Temporarily parked with reason
+
+completed
+
+Approved complete and briefly visible
+
+archived
+
+History-only state; never reopens
+
+Confidence Level
+
+Value
+
+Meaning
+
+High Confidence
+
+Support strong enough for standard surfacing/wording
+
+Medium Confidence
+
+Useful with caution
+
+Low Confidence
+
+Weak support; use cautious posture
+
+Insufficient Data
+
+Not enough support for normal confident behavior
+
+Freshness Status
+
+Value
+
+Meaning
+
+Current
+
+Fresh enough for ordinary use
+
+Acceptable
+
+Still usable with note
+
+Stale
+
+Old enough to reduce confidence or require warning
+
+Unknown
+
+Date/freshness unclear
+
+Visibility Class
+
+Value
+
+Meaning
+
+Management Visible
+
+Shown in management/reviewer views
+
+Owner / Assignee Visible
+
+Shown to assigned/appropriate users
+
+Management-Only Protected
+
+Restricted note/detail class
+
+Archive History Visible
+
+Shown only in approved history context
+
+Suppressed
+
+Not shown in ordinary view/output
+
+Action Type
+
+Value
+
+Meaning
+
+Reduce / Pause Replenishment Review
+
+Potential inventory reduction / pause case
+
+Trapped Cash Review
+
+Capital tied in weak inventory case
+
+Stock Risk Review
+
+Service/availability risk case
+
+Grouped Business Case
+
+Single business case spanning multiple child items
+
+Management-Elevated Review
+
+Manually elevated by management
+
+Other Review Type
+
+Allowed but should remain controlled in V1
+
+Source Type
+
+Value
+
+Meaning
+
+Inventory Snapshot
+
+Current stock position evidence
+
+Sales / Demand History
+
+Movement / revenue evidence
+
+Receipt History
+
+Age / recent-receipt evidence
+
+Open Order / Incoming Supply
+
+Future supply evidence
+
+Manual Management Entry
+
+Manually entered evidence or override note
+
+RSE Signal
+
+Optional linked signal from RSE
+
+Other Mapped Source
+
+Allowed when mapped and reviewed
+
+6. Source-Agnostic IAM Data Domains
+
+Core IAM domains
+
+IAM Data Domain
+
+Typical required fields
+
+Example mapped sources
+
+Company / Run Context
+
+company, review date, cadence
+
+manual setup, client profile, reviewer setup
+
+Inventory Position
+
+item/SKU ID, QOH, cost or value
+
+inventory export, item master, WMS export
+
+Sales / Demand Evidence
+
+item/SKU ID, units sold, gross sales dollars, period
+
+POS sales history, ERP sales history, spreadsheet
+
+Receipt / Age Evidence
+
+first purchase date, last receipt date, last receipt qty
+
+PO receipt history, inventory receipt log, spreadsheet
+
+Supply Evidence
+
+open orders, incoming qty, expected receipt date
+
+open PO report, inbound supply report
+
+Classification / Status Evidence
+
+classification, protected flag, item status
+
+RSE output, item master, custom attribute list
+
+Role / User Evidence
+
+user name, role
+
+manual setup, admin list, security export
+
+Action Candidate Evidence
+
+source type, evidence strength, estimated impact, action type
+
+derived by IAM or linked mapped source
+
+7. Core IAM Tables and Field Structure
+
+companies
+
+Field
+
+Requirement
+
+Notes
+
+company_id
+
+Required
+
+System ID
+
+company_name
+
+Required
+
+Customer/business name
+
+business_type
+
+Strongly Preferred
+
+Distributor / hybrid / other
+
+active_status
+
+Required
+
+Active/inactive
+
+iam_runs
+
+Field
+
+Requirement
+
+Notes
+
+iam_run_id
+
+Required
+
+System ID
+
+company_id
+
+Required
+
+Company link
+
+run_name
+
+Required
+
+Run label
+
+review_date
+
+Required
+
+Cycle review date
+
+review_cadence
+
+Required
+
+Weekly default in V1
+
+run_status
+
+Required
+
+Run status/control label
+
+run_version
+
+Required
+
+Version number
+
+parent_run_id
+
+Optional
+
+Prior/revised run link
+
+source_documents
+
+Field
+
+Requirement
+
+Notes
+
+source_document_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+source_system_name
+
+Required
+
+POS, ERP, spreadsheet, manual, etc.
+
+source_document_name
+
+Required
+
+Export/report/worksheet name
+
+source_area_or_section
+
+Strongly Preferred
+
+Report area used
+
+source_report_date
+
+Strongly Preferred
+
+Date of source evidence
+
+freshness_status
+
+Required
+
+Current / acceptable / stale / unknown
+
+confidence_level
+
+Required
+
+High / medium / low / insufficient
+
+field_mappings
+
+Field
+
+Requirement
+
+Notes
+
+field_mapping_id
+
+Required
+
+System ID
+
+source_document_id
+
+Required
+
+Source link
+
+source_field_name
+
+Required
+
+Original field/column
+
+iam_domain
+
+Required
+
+Destination domain
+
+iam_table
+
+Required
+
+Destination table
+
+iam_field_name
+
+Required
+
+Destination field
+
+mapping_confidence
+
+Required
+
+High / medium / low / insufficient
+
+validation_status
+
+Required
+
+Validated / needs review / failed
+
+inventory_snapshots
+
+Field
+
+Requirement
+
+Notes
+
+inventory_snapshot_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+sku_or_item_id
+
+Required
+
+Item identifier
+
+description
+
+Strongly Preferred
+
+Readable item name
+
+quantity_on_hand
+
+Required
+
+QOH
+
+cost
+
+Strongly Preferred
+
+Unit cost
+
+inventory_value
+
+Strongly Preferred
+
+Extended inventory value if available
+
+classification
+
+Strongly Preferred
+
+ABC/classification/RSE-linked if available
+
+item_status
+
+Strongly Preferred
+
+Active, protected, discontinued, etc.
+
+vendor_name
+
+Strongly Preferred
+
+Vendor/brand/supplier
+
+demand_history
+
+Field
+
+Requirement
+
+Notes
+
+demand_history_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+sku_or_item_id
+
+Required
+
+Item identifier
+
+period_label
+
+Required
+
+Week/month period
+
+units_sold
+
+Required
+
+Movement units
+
+gross_sales_dollars
+
+Required
+
+Sales dollars
+
+returns_or_negative_movement
+
+Optional
+
+Useful to interpret quality of demand
+
+data_confidence
+
+Required
+
+Confidence label
+
+receipt_history_summary
+
+Field
+
+Requirement
+
+Notes
+
+receipt_history_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+sku_or_item_id
+
+Required
+
+Item identifier
+
+first_purchase_date
+
+Strongly Preferred
+
+Age clue
+
+last_receipt_date
+
+Strongly Preferred
+
+Recent stock clue
+
+last_receipt_quantity
+
+Strongly Preferred
+
+Meaningful recent receipt context
+
+receipt_count_lookback
+
+Optional
+
+Recent receipt count
+
+received_qty_lookback
+
+Optional
+
+Recent received quantity
+
+incoming_supply
+
+Field
+
+Requirement
+
+Notes
+
+incoming_supply_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+sku_or_item_id
+
+Required
+
+Item identifier
+
+open_order_quantity
+
+Strongly Preferred
+
+On-order/incoming qty
+
+expected_receipt_date
+
+Strongly Preferred
+
+ETA
+
+backorder_quantity
+
+Optional
+
+Useful stock-risk context
+
+data_confidence
+
+Required
+
+Confidence label
+
+action_candidates
+
+Field
+
+Requirement
+
+Notes
+
+action_candidate_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+source_type
+
+Required
+
+Mapped source / derived source type
+
+action_type
+
+Required
+
+Controlled action type
+
+candidate_title
+
+Required
+
+Plain-English label
+
+evidence_strength
+
+Required
+
+Strong / moderate / weak / unsupported
+
+estimated_cash_impact
+
+Strongly Preferred
+
+Lead factor when supportable
+
+service_operational_risk_flag
+
+Strongly Preferred
+
+Override review clue
+
+management_priority_flag
+
+Optional
+
+Elevated item marker
+
+confidence_level
+
+Required
+
+Confidence label
+
+actions
+
+Field
+
+Requirement
+
+Notes
+
+action_id
+
+Required
+
+System ID
+
+iam_run_id
+
+Required
+
+Run link
+
+action_candidate_id
+
+Strongly Preferred
+
+Candidate link
+
+action_title
+
+Required
+
+Plain-English title
+
+action_type
+
+Required
+
+Controlled action type
+
+owner_role_or_user
+
+Strongly Preferred
+
+Assigned owner
+
+workflow_state
+
+Required
+
+Controlled workflow state
+
+first_surfaced_date
+
+Required
+
+Initial surfaced date
+
+due_date
+
+Conditional
+
+Required before leaving featured status
+
+review_date
+
+Conditional
+
+Required before leaving featured status
+
+completed_date
+
+Optional
+
+If completed
+
+archived_date
+
+Optional
+
+If archived
+
+original_estimated_impact
+
+Strongly Preferred
+
+Estimated impact when supportable
+
+actual_achieved_impact
+
+Optional
+
+Only when easily supportable
+
+visibility_class
+
+Required
+
+Visibility control
+
+grouped_action_items
+
+Field
+
+Requirement
+
+Notes
+
+grouped_action_item_id
+
+Required
+
+System ID
+
+action_id
+
+Required
+
+Parent group action link
+
+child_reference_id
+
+Required
+
+Child item reference
+
+child_status
+
+Required
+
+Open / resolved / removed
+
+child_note
+
+Optional
+
+Explanation
+
+notes
+
+Field
+
+Requirement
+
+Notes
+
+note_id
+
+Required
+
+System ID
+
+action_id
+
+Required
+
+Action link
+
+note_type
+
+Required
+
+Reviewer note / management note / general note
+
+visibility_class
+
+Required
+
+Protected vs ordinary note visibility
+
+note_text
+
+Required
+
+Note content
+
+created_by
+
+Strongly Preferred
+
+User/role
+
+created_date
+
+Required
+
+Timestamp/date
+
+action_history_archive
+
+Field
+
+Requirement
+
+Notes
+
+archive_record_id
+
+Required
+
+System ID
+
+action_id
+
+Required
+
+Original action ID
+
+action_title
+
+Required
+
+History label
+
+action_type
+
+Required
+
+Action type
+
+owner_role_or_user
+
+Strongly Preferred
+
+Owner at closure
+
+first_surfaced_date
+
+Required
+
+Original surfaced date
+
+completed_date
+
+Strongly Preferred
+
+Completed date if applicable
+
+archived_date
+
+Required
+
+Archive date
+
+original_estimated_impact
+
+Strongly Preferred
+
+Estimated impact if supportable
+
+actual_achieved_impact
+
+Optional
+
+Only when supportable
+
+8. Minimum Viable IAM Run Data
+
+Minimum viable run inputs
+
+Data area
+
+Requirement
+
+Notes
+
+Review date / cycle
+
+Required
+
+Defines the weekly cycle context
+
+Company/workspace
+
+Required
+
+One company per workspace in V1
+
+Item/SKU identifier
+
+Required
+
+Needed to support item-level evidence
+
+Current stock position
+
+Required
+
+QOH at minimum
+
+Sales / demand evidence
+
+Required
+
+Units sold and gross sales dollars
+
+Cost or value support
+
+Required
+
+Cost strongly preferred; value support also useful
+
+Candidate support / reason
+
+Required
+
+Supportable evidence for surfaced issues
+
+Confidence label
+
+Required
+
+Needed for cautious behavior and display wording
+
+Role/user structure
+
+Required
+
+Needed for assignment and visibility
+
+9. Confirmed-None-Exist and Source-of-Truth Rules
+
+Blank data is not zero unless it is explicitly confirmed that no record exists.
+
+Confirmed-none-exist behavior should preserve who confirmed it, when it was confirmed, and the confidence level of that confirmation where practical.
+
+If two mapped sources conflict, flag the conflict, reduce confidence, preserve source lineage, and require a source-of-truth selection or documented reviewer treatment.
+
+Manual assumptions should be visible as manual assumptions and should not masquerade as high-confidence imported data.
+
+10. Data Freshness and Source Evidence Standards
+
+Freshness standards
+
+Data area
+
+Standard
+
+Inventory snapshot
+
+Prefer current or recent enough for current cycle
+
+Sales / demand history
+
+Should match the intended review window and not be stale without warning
+
+Receipt / age evidence
+
+Recent enough to support current-stock-age interpretation
+
+Incoming supply / open order evidence
+
+Current enough to avoid false stock-risk conclusions
+
+Role/user data
+
+Current enough for assignment/visibility behavior
+
+Source evidence fields
+
+Field
+
+Requirement
+
+source_system_name
+
+Required where imported/mapped
+
+source_document_name
+
+Required where imported/mapped
+
+source_area_or_section
+
+Strongly Preferred
+
+source_report_date
+
+Strongly Preferred
+
+uploaded_or_entered_by
+
+Strongly Preferred
+
+source_confidence
+
+Required
+
+source_freshness_status
+
+Required
+
+11. First-Build Table Scope
+
+Build first
+
+Build phase
+
+Tables/domains
+
+Build First
+
+companies, iam_runs, source_documents, field_mappings, inventory_snapshots, demand_history, receipt_history_summary, incoming_supply, action_candidates, actions, grouped_action_items, notes, action_history_archive
+
+Build second
+
+Build phase
+
+Tables/domains
+
+Build Second
+
+optional classification/status enrichment, transfer evidence, deeper backorder support, enhanced archive result fields
+
+Build later
+
+Build phase
+
+Tables/domains
+
+Build Later
+
+more advanced source-batch management, richer diagnostics, broader audit layers beyond validation-stage need
+
+12. Plain-English Glossary
+
+Glossary
+
+Term
+
+Meaning
+
+IAM Run
+
+One review cycle for one company/workspace
+
+Featured Priority
+
+One of the top 2 surfaced weekly priorities
+
+Holdover
+
+Still-open work carried into later cycle
+
+Management-Priority Item
+
+Item kept active outside normal top-2 cycle
+
+Grouped Action
+
+One business decision case covering multiple child items
+
+Confidence Level
+
+Strength of support behind a surfaced issue or data point
+
+Archived Action
+
+Closed history item that never reopens in V1
+
+13. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes data principle, requirement levels, enums, expanded tables, minimum viable run data, source-of-truth rules, freshness standards, and build scope.
+
+Gaps
+
+Pass with carry-forward
+
+Exact final Keystroke/AIMS mapping remains separate addendum work.
+
+Errors
+
+Pass
+
+Validation-stage build boundary and supportable-data rules preserved.
+
+Recommendations
+
+Included
+
+Build first from the core IAM tables and keep mapping/source logic flexible.
+
+Ease of use
+
+Pass
+
+Document now functions as a true developer data backbone rather than a high-level note.

@@ -1,0 +1,639 @@
+Document 6 - IAM Distribution V1.0 Output and Export Specification
+
+Full detailed consolidated version
+
+Status: Active working output and export specification for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package document should be used together with those active control files. The numbered package gives staged package structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+2. Purpose and Output Principle
+
+This document defines IAM management outputs, internal reviewer outputs, operational exports, archive/history outputs, output validation, visibility controls, and file/output versioning.
+
+An output is a screen summary, report, table, or view produced by IAM.
+
+An export is a downloadable file created from an IAM output or controlled data set.
+
+IAM outputs must reflect workflow state, confidence, visibility, and archive rules rather than simply dumping raw data.
+
+Management-facing outputs should be plain-English and action-oriented.
+
+Internal reviewer outputs may contain deeper confidence, visibility, lineage, and protected-note detail where role-appropriate.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Output Type vs Export File
+
+Terms
+
+Term
+
+Meaning
+
+Output
+
+Screen, summary, report, table, or view produced by IAM
+
+Export
+
+Downloadable file created from an IAM output or controlled export set
+
+Management Output
+
+Owner/management decision clarity output
+
+Internal Reviewer Output
+
+Deeper reviewer/internal validation output
+
+Operational Export
+
+File used to support action, follow-up, or internal review
+
+Archive / History Export
+
+Controlled completed/archive history output
+
+Conditional Keystroke-Targeted Export
+
+Only applies if IAM ever generates a file intended for Keystroke upload or re-import; tab-delimited .txt only
+
+5. Output Audience Layers
+
+Audience layers
+
+Layer
+
+Purpose
+
+Allowed / restricted content
+
+Management Output
+
+Owner/management decision clarity
+
+Plain-English priorities, actions, confidence-aware wording, no protected internal notes unless specifically approved
+
+Internal Reviewer Output
+
+Reviewer/CFO/internal validation
+
+Deeper confidence, source lineage, protected notes, internal detail where role-appropriate
+
+Operational Export
+
+Support action/follow-up outside IAM
+
+Action-support data consistent with visibility rules
+
+Archive / History Output
+
+Useful closed-work history
+
+Completed/archive history content consistent with role and visibility rules
+
+Conditional Keystroke-Targeted Export
+
+Only if re-import/upload behavior applies
+
+Tab-delimited .txt only; CSV/XLSX cannot be labeled import-ready
+
+6. Management Output Sections
+
+Required management-facing sections
+
+Section
+
+Required content
+
+Output Header
+
+Company, run/review date, status, confidence, version
+
+Executive / Management Summary
+
+Plain-English summary of what matters now
+
+Top Featured Priorities
+
+Top 2 surfaced priorities and why they matter
+
+Management-Priority Items
+
+Elevated or material-event items where applicable
+
+Holdover Summary
+
+Still-open work carried forward
+
+Data Gaps Affecting Decisions
+
+Customer-safe explanation of material limitations
+
+Action Tracker Summary
+
+Action, owner, due/review date, expected result, current status
+
+Closing Next-Step Summary
+
+What to do now, what waits, what needs approval or more data
+
+7. Example Management Output Columns
+
+Management decision board / summary columns
+
+Column
+
+Notes
+
+Priority Rank
+
+Featured or management-priority context
+
+Action Title / Label
+
+Plain-English action label
+
+Action Type
+
+Controlled action type
+
+Why It Matters
+
+Short owner-facing reason
+
+Recommended Action
+
+Plain-English next step
+
+Owner
+
+Who should act
+
+Due / Review Date
+
+Timing expectation
+
+Confidence
+
+Confidence-aware wording
+
+Current Status
+
+Featured / holdover / active / completed summary context
+
+Limitation / Caution
+
+Only when needed
+
+8. Internal Reviewer Output
+
+Internal reviewer output may show deeper confidence and evidence detail than management output.
+
+Internal reviewer output may include protected notes, source lineage, review-state detail, and visibility-control checks where role-appropriate.
+
+Internal reviewer output should still remain usable and not become an uncontrolled diagnostic dump in V1.
+
+9. Export Field / Column Guidance
+
+Action export
+
+Field
+
+Use
+
+iam_run_id
+
+Run reference
+
+action_id
+
+Action identifier
+
+action_title
+
+Action label
+
+action_type
+
+Controlled action type
+
+workflow_state
+
+Current state
+
+owner_role_or_user
+
+Owner
+
+first_surfaced_date
+
+When it first surfaced
+
+due_date
+
+Timing
+
+review_date
+
+Timing
+
+confidence_level
+
+Confidence label
+
+original_estimated_impact
+
+Estimated impact when supportable
+
+visibility_class
+
+Visibility control
+
+Archive / history export
+
+Field
+
+Use
+
+iam_run_id
+
+Run reference
+
+action_id
+
+Original action identifier
+
+action_title
+
+Archived label
+
+action_type
+
+Action type
+
+owner_role_or_user
+
+Owner at closure
+
+first_surfaced_date
+
+Original surfaced date
+
+completed_date
+
+Completed date if applicable
+
+archived_date
+
+Archive date
+
+original_estimated_impact
+
+Estimated impact where supportable
+
+actual_achieved_impact
+
+Only when supportable
+
+visibility_class
+
+Role/visibility control
+
+Action tracker / follow-up export
+
+Field
+
+Use
+
+iam_run_id
+
+Run reference
+
+action_id
+
+Related action
+
+owner_role_or_user
+
+Owner
+
+due_date
+
+Due date
+
+review_date
+
+Review timing
+
+workflow_state
+
+Current state
+
+expected_result
+
+Expected result if tracked
+
+follow_up_note
+
+Follow-up note if allowed
+
+visibility_class
+
+Visibility control
+
+Reviewer / validation export
+
+Field
+
+Use
+
+iam_run_id
+
+Run reference
+
+action_id
+
+Related action
+
+confidence_level
+
+Confidence posture
+
+source_document_name
+
+Lineage support
+
+source_report_date
+
+Freshness support
+
+protected_note_flag
+
+Protected-note indicator
+
+visibility_check_passed
+
+Visibility control status
+
+10. Visibility, Protected Notes, and Sensitive Data Rules
+
+Visibility rules
+
+Rule area
+
+Required behavior
+
+Protected notes
+
+Management-only notes are a protected visibility class
+
+Ordinary management output
+
+Must not expose protected internal note detail unless approved
+
+Ordinary non-management output/view
+
+Must not expose restricted content
+
+Ordinary export
+
+Must follow visibility rules and not leak protected content
+
+Archive/history output
+
+Still follows role and visibility rules
+
+Internal reviewer output
+
+May show deeper detail where role-appropriate
+
+11. Output Wording Rules
+
+Use vs avoid
+
+Use
+
+Avoid
+
+Featured priority
+
+Algorithm said so
+
+Recommended action
+
+System executed change
+
+Holdover - still open
+
+Automatically handled
+
+Completed - awaiting archive/history view
+
+Reopened completed item
+
+This data limitation reduces confidence
+
+Precise certainty when support is weak
+
+Management review required
+
+Auto-approved / auto-executed language
+
+12. Archive / History Output Rules
+
+Archive/history output should act as useful history rather than a dead status bucket.
+
+Completed items may remain visible briefly before archive according to approved workflow behavior.
+
+Archive/history output should preserve action ID, title/label, action type, owner, first surfaced date, completed date, archived date, and original estimated impact where supportable.
+
+Actual achieved impact should appear only when easily supportable.
+
+Archived items never reopen in V1; later similar issues become new actions with new IDs.
+
+13. Versioning, Validation, and Naming Guidance
+
+Required output/version fields
+
+Field
+
+Use
+
+iam_run_id
+
+Run reference
+
+output_version
+
+Output version
+
+source_logic_version
+
+Associated logic/build version
+
+generated_date
+
+When output/export was created
+
+generated_by
+
+Who created/exported it if tracked
+
+visibility_check_passed
+
+Visibility review result
+
+export_use_status
+
+Management / internal / operational / archive / conditional Keystroke-targeted
+
+File naming guidance
+
+File type
+
+Naming pattern
+
+Management output export
+
+IAM_Management_[CompanyName]_[ReviewDate]_[OutputType]_v[Version]
+
+Internal export
+
+IAM_Internal_[CompanyName]_[ReviewDate]_[ExportType]_v[Version]
+
+Archive/history export
+
+IAM_Archive_[CompanyName]_[ReviewDate]_[ExportType]_v[Version]
+
+Conditional Keystroke-targeted export
+
+IAM_Keystroke_[CompanyName]_[ReviewDate]_[ExportType]_v[Version].txt
+
+14. Conditional Keystroke-Targeted Export Rule
+
+This applies only if IAM ever generates a file intended for Keystroke upload or re-import.
+
+Validation checks
+
+Validation check
+
+Required behavior
+
+File extension
+
+Must be .txt
+
+Delimiter
+
+Must be tab
+
+CSV/XLSX label rule
+
+CSV/XLSX cannot be labeled import-ready
+
+Internal note removal
+
+Protected/internal notes must not be present
+
+Formula removal
+
+No spreadsheet formulas in import-ready file
+
+Export logging
+
+Should preserve controlled export/use status where practical
+
+15. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes output principle, audience layers, management output structure, export guidance, visibility rules, wording rules, archive/history rules, and versioning/export validation guidance.
+
+Gaps
+
+Pass with carry-forward
+
+Exact final Keystroke-targeted export template remains conditional and separate if needed later.
+
+Errors
+
+Pass
+
+Validation-stage boundary and protected-visibility rules preserved.
+
+Recommendations
+
+Included
+
+Use this file as the main output/export backbone together with file 05, the active build brief, and the active UAT workbook.
+
+Ease of use
+
+Pass
+
+Document now functions as a real output/export specification rather than a compressed note.
+
+
+
+16. Playbook Output and Export Reference
+
+Management-facing output should be able to show the selected or recommended cash-recovery playbook in plain-English action language where relevant.
+
+Action tracker outputs and exports should be able to show playbook name, owner, due/review date, current status, and follow-up measurement requirement.
+
+Internal reviewer outputs may show deeper playbook-selection reasoning where role-appropriate.
+
+Ordinary exports must still respect protected-note and visibility rules even when playbook detail is included.
+
+Archive/history output may preserve the playbook used on the action as part of useful history where supportable.

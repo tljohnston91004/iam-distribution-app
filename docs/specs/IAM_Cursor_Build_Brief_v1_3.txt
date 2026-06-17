@@ -1,0 +1,489 @@
+IAM Cursor Build Brief — v1.3
+
+Internal build brief for IAM V1 validation
+
+1. Purpose
+
+This brief gives Cursor a clear build boundary for IAM V1 validation so development starts inside the approved scope and does not overbuild beyond the validation-stage objective.
+
+2. Product Summary
+
+IAM (Inventory Action Manager) is an inventory action engine.
+
+Its job is to help an inventory-based business identify what inventory action matters most now, prioritize it, assign ownership, manage holdovers, govern completion, and keep active and completed work clearly separated.
+
+IAM is not a replenishment settings engine.
+
+IAM is not a purchasing system.
+
+IAM is not a full ERP replacement.
+
+IAM is not a blind automation engine.
+
+IAM is not a write-back settings product.
+
+3. V1 Build Objective
+
+Build a controlled IAM V1 validation product that proves the priority logic is useful, the weekly action-management rhythm works, ownership and holdover discipline add value, management can use the product without needing a full enterprise platform first, and IAM can create practical customer value before deeper automation is added.
+
+4. Validation-Stage Build Rule
+
+Cursor should treat IAM as a validation-stage build, not a final enterprise version.
+
+Prove the core product first.
+
+Preserve explainability.
+
+Avoid overbuilding architecture and settings layers too early.
+
+Prioritize usable workflow and rule fidelity over feature breadth.
+
+5. V1 Scope Boundary
+
+Build in V1
+
+one company per environment/workspace
+
+one weekly operating rhythm
+
+top 2 featured new priorities
+
+holdover tracking
+
+management approval / rejection / assignment
+
+grouped actions
+
+due/review dates
+
+completion and archive logic
+
+role-based visibility
+
+missing-data / low-confidence behavior
+
+limited validation/UAT scope
+
+Do not overbuild in V1
+
+multi-company shared live workspace
+
+user-adjustable priority weights
+
+separate grouped-action screen
+
+full enterprise tenant architecture
+
+full write-back behavior beyond approved product boundary
+
+giant export-permission customization system
+
+deep compliance tooling
+
+every possible edge case before validation
+
+excessive settings/configuration layers
+
+advanced admin feature layers before the core workflow is proven
+
+broad reporting packages before the core action behavior is working
+
+6. Non-Negotiable Rules
+
+Product boundary
+
+IAM is the inventory action engine.
+
+RSE is the replenishment settings engine.
+
+IFM is the inventory funding / capital-discipline engine.
+
+Decision OS is the broader priority framework.
+
+Workspace / tenancy
+
+one company per workspace/environment in V1
+
+no shared live multi-company behavior in V1
+
+Priority logic
+
+cash impact leads by default
+
+service or operational risk can override only when clearly more dangerous to the business
+
+that override is a high threshold, not a small modifier
+
+urgency is not a separate top-level ranking factor
+
+confidence is not a lead ranking factor; it modifies strength/certainty
+
+new priorities and holdovers rank separately
+
+Workflow / ownership
+
+top 2 remain the core surfaced weekly priorities
+
+management retains final approval over surfaced priorities
+
+approved items are assigned in the same weekly cycle
+
+each approved/assigned item must have a due/review date before leaving featured status
+
+grouped actions require one business decision case, one owner, one action type
+
+completed actions never reopen
+
+similar future issues become new actions with new IDs
+
+management authority is granted only by admin/internal setup
+
+IAM does not become the replenishment settings write-back tool
+
+Confidence / data discipline
+
+weak confidence must not pretend strong certainty
+
+use what is supportable
+
+avoid false precision
+
+weak-data cases may surface more cautiously, but should not be disguised as strong confident priorities
+
+unsupported normal logic may be suppressed
+
+important but weakly supported issues may appear in a more cautious review/exception posture
+
+7. Core Screens
+
+V1 should stay screen-light and practical.
+
+Required screens
+
+Management Dashboard
+
+Assigned User View
+
+Action Detail View
+
+Completed Archive View
+
+Screen rule
+
+grouped actions are handled inside Action Detail View
+
+do not build a separate standalone grouped-action screen in V1
+
+UI and screens should be minimal and functional for validation, not polished like a production enterprise release
+
+8. Core Workflow States
+
+At minimum, V1 should support these operational states:
+
+surfaced / featured
+
+approved
+
+rejected for cycle
+
+awaiting acceptance
+
+active
+
+holdover
+
+paused
+
+completed
+
+archived
+
+Workflow behavior reminders
+
+rejected actions return to future cycle evaluation
+
+rejected top priorities do not get auto-replaced by lower-ranked items in the same cycle
+
+the weekly cycle may end with zero approved top priorities
+
+unresolved featured actions move into holdover automatically at week end
+
+awaiting acceptance is a real pre-active state and should support timeout visibility/escalation
+
+completed actions remain visible briefly, then archive
+
+completed or archived actions never reopen
+
+Workflow transition examples
+
+Featured -> Approved -> Awaiting Acceptance -> Active -> Completed -> Archived
+
+Featured -> Rejected for Cycle -> return to future cycle evaluation
+
+Featured -> Approved -> Active -> Holdover -> Completed -> Archived
+
+Featured -> Approved -> Awaiting Acceptance -> timeout/escalation visibility -> reassignment or continued follow-up
+
+9. Grouped-Action Rule
+
+Cursor should treat grouped actions conservatively in V1.
+
+only use grouped actions when multiple items truly belong to one business decision case
+
+grouped actions require one owner and one action type
+
+child-level overengineering should be avoided in V1
+
+partial child resolution should be visible
+
+the grouped action remains open until all child items are resolved or formally removed
+
+10. Management-Priority Item Rule
+
+IAM supports top 2 featured priorities as the core weekly focus.
+
+Management may elevate additional items when needed.
+
+Materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items remain visible and active even when they are outside the normal top-2 cycle.
+
+Management-priority example
+
+Example: the normal weekly cycle surfaces 2 featured priorities, but management elevates a vendor-caused service-risk issue that became material midweek. That item may be treated as an active management-priority item or out-of-cycle 3rd priority without replacing the approved top-2 logic.
+
+11. Weekly Operating Model
+
+IAM V1 is built around a weekly management rhythm.
+
+weekly cycle is the default rhythm
+
+same-day-each-week expectation, but not mandatory
+
+review top 2 featured priorities first
+
+approve / reject / assign in the same weekly cycle
+
+then review holdovers and management-priority items
+
+lower-ranked items do not replace rejected top priorities in the same cycle
+
+management may elevate additional items when needed
+
+materially important out-of-cycle events may create a 3rd top priority
+
+unresolved items move into holdover automatically
+
+completed items remain briefly visible, then archive
+
+12. UAT / Validation Scope
+
+Keep V1 UAT disciplined and limited to core product behavior.
+
+Core UAT buckets
+
+new priority surfacing
+
+approval / rejection / assignment
+
+holdover movement
+
+completion / archive behavior
+
+grouped-action behavior
+
+missing-data / low-confidence behavior
+
+role / visibility behavior
+
+UAT rule
+
+do not attempt to test every imaginable edge case before validation proves the core product
+
+13. Data and Source Assumptions
+
+IAM should use supportable data and avoid false precision.
+
+Minimum strong validation data stack
+
+item/SKU ID
+
+description
+
+on-hand quantity
+
+units sold / sales history
+
+gross sales dollars
+
+cost
+
+classification
+
+first purchase date
+
+last receipt date
+
+last receipt quantity
+
+open orders / incoming supply
+
+expected receipt dates
+
+item status / protected logic
+
+vendor / brand / supplier
+
+user / role list
+
+Stronger enhancement data stack
+
+allocated / committed quantity
+
+available quantity
+
+inventory value
+
+department / category / subcategory
+
+item creation / activation date
+
+receipt count / quantity in lookback
+
+backorder quantity
+
+returns / negative movement
+
+pack size / MOQ / case quantity
+
+node/location detail
+
+node role / type
+
+transfer indicators/history
+
+Pilot / optional-field reminder
+
+The minimum strong validation stack is enough to start a controlled pilot build.
+
+The stronger enhancement stack should improve accuracy and management trust, but should not be treated as a reason to block all validation progress if core data is already supportable.
+
+Source mapping note
+
+Keystroke / AIMS final source mapping remains a separate addendum and must be completed before final source-truth behavior is treated as fully closed.
+
+Cursor should not stall the core validation build waiting for perfect source mapping.
+
+Build should proceed using the approved logic boundary, with source mapping refined through the separate addendum.
+
+14. Product Family Boundary
+
+Cursor should not blur IAM into other products.
+
+IAM
+
+action engine
+
+priority surfacing
+
+ownership
+
+workflow
+
+holdovers
+
+completion discipline
+
+RSE
+
+settings engine
+
+Min/Max
+
+replenishment logic
+
+classification logic
+
+settings write-back where approved
+
+IFM
+
+inventory funding / capital discipline
+
+allocation / constraint / protection of inventory dollars
+
+Decision OS
+
+broader priority framework across products
+
+15. Security / Visibility Rule
+
+management-only notes are a protected visibility class
+
+restricted content must not appear in ordinary non-management views
+
+role-based permissions apply to ordinary dashboard views, action-detail views, and export behavior as a practical minimum in V1
+
+export behavior should follow visibility rules as a practical minimum in V1
+
+16. Archive Content Rule
+
+Archived items should preserve at least action ID, action title/label, action type, owner, first surfaced date, completed date, and original estimated impact where available.
+
+Actual achieved impact should appear only when easily supportable.
+
+Archive should behave as useful history, not just a dead status bucket.
+
+Archive content example
+
+Example archive row: Action ID 1042 | Reduce / Pause Replenishment Review | Owner: Buyer A | First Surfaced: 2026-06-01 | Completed: 2026-06-15 | Original Estimated Impact: $18,500 | Actual Achieved Impact: blank if not supportable.
+
+17. Build Priority Order
+
+Cursor should build in this order:
+
+data model and workflow state model
+
+management dashboard
+
+action detail view
+
+assignment / acceptance / holdover behavior
+
+completion / archive logic
+
+grouped-action handling
+
+missing-data / low-confidence behavior
+
+role-based visibility
+
+UAT support behavior
+
+18. Build Philosophy
+
+keep V1 practical
+
+keep V1 explainable
+
+do not overbuild customization
+
+do not force precision the data cannot support
+
+preserve management control
+
+preserve clean product boundary between IAM and other family products
+
+19. What Success Looks Like
+
+Cursor should treat the build as successful when the top-2 weekly priority model works, approval / rejection / assignment works, holdovers behave correctly, grouped actions behave conservatively and clearly, missing-data behavior is honest, completed/archive behavior works correctly, role-based visibility works, and the product feels like a usable validation-stage management tool rather than a feature-heavy unfinished platform.
+
+20. Handoff Notes for Cursor
+
+treat this as a validation-stage build, not the final enterprise version
+
+favor usable workflow over feature sprawl
+
+preserve the approved rules even when a more complex technical alternative exists
+
+do not build beyond the approved boundary unless specifically authorized later

@@ -1,0 +1,581 @@
+Document 7 - IAM Distribution V1.0 Sample Test Data and Expected Results
+
+Full detailed consolidated version
+
+Status: Active working sample test data and expected results guide for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package document should be used together with those active control files. This document provides scenario and expected-result foundations, while the IAM UAT workbook remains the formal pass/fail control file.
+
+2. Purpose and Test Principle
+
+This document defines the IAM sample validation scenarios and expected results for V1. It is meant to validate ranking behavior, workflow behavior, grouped-action behavior, confidence behavior, visibility restrictions, completion/archive behavior, and hard-rule compliance.
+
+This document is not the full pass/fail workbook by itself.
+
+It provides the sample scenario backbone and expected results that should feed the active IAM UAT workbook.
+
+The goal is to validate behavior, not just to list scenario names.
+
+The expected results should protect the approved IAM rules from build drift.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Sample Test Run Setup
+
+Sample test run setup
+
+Field
+
+Sample value / expected setup
+
+Company / Workspace
+
+Sample single-company IAM workspace
+
+Review Cadence
+
+Weekly
+
+Review Date
+
+2026-06-06
+
+Workspace Model
+
+One company per workspace/environment
+
+Priority Weight Logic
+
+Fixed weights in V1
+
+Management-Priority Logic
+
+Enabled
+
+Grouped-Action Logic
+
+Enabled
+
+Protected Visibility Logic
+
+Enabled
+
+Completion / Archive Logic
+
+Enabled
+
+Confidence Conditions
+
+Mix of strong, medium, low, and insufficient support cases
+
+5. Sample Scenario Set
+
+Scenario set overview
+
+Scenario ID
+
+Scenario name
+
+Expected high-level result
+
+SC-001
+
+Clear trapped-cash priority case
+
+Should surface as high cash-led priority
+
+SC-002
+
+Clear stock-risk case
+
+Should surface with strong service/operational relevance
+
+SC-003
+
+Service/operational override case
+
+Should outrank cash only if clearly more dangerous
+
+SC-004
+
+Rejected top-priority case
+
+Rejected item returns to future cycle and lower-ranked item does not auto-replace
+
+SC-005
+
+Zero-approved-priority weekly cycle case
+
+Weekly cycle may end with zero approved top priorities
+
+SC-006
+
+Grouped-action case
+
+Single business case grouped under one owner / one action type
+
+SC-007
+
+Management-elevated item case
+
+Management-priority item remains active outside normal top-2 cycle
+
+SC-008
+
+Material-event 3rd-priority case
+
+3rd priority may appear without replacing approved top-2 logic
+
+SC-009
+
+Low-confidence important issue
+
+Should surface cautiously, not with false certainty
+
+SC-010
+
+Completed then archived case
+
+Completed item visible once, then archived and never reopened
+
+SC-011
+
+Protected-note visibility case
+
+Management-only note not visible to ordinary user
+
+SC-012
+
+Ordinary export restriction case
+
+Protected content not included in ordinary export
+
+6. Scenario Detail
+
+SC-001 Clear trapped-cash priority case
+
+Setup / precondition: strong evidence of capital tied up in weak inventory condition.
+
+Expected surfaced behavior: appears as one of the top featured priorities under normal cash-led logic.
+
+Expected workflow behavior: can be approved, rejected, or assigned in same cycle.
+
+Expected output behavior: plain-English management-facing summary should explain why it matters now.
+
+SC-002 Clear stock-risk case
+
+Setup / precondition: strong evidence of meaningful stock/service risk.
+
+Expected surfaced behavior: appears as a strong priority candidate and may feature if ranked high enough.
+
+Expected workflow behavior: should move through normal approval/assignment path if approved.
+
+Expected output behavior: management-facing output should show service/operational risk clearly.
+
+SC-003 Service/operational override case
+
+Setup / precondition: a stock/service risk case exists that is clearly more dangerous than a competing cash case.
+
+Expected surfaced behavior: service/operational case may outrank cash only because the danger threshold is clearly higher.
+
+Expected workflow behavior: treated as standard featured item once surfaced.
+
+Expected output behavior: wording should explain why override occurred in plain English rather than pretending pure scoring precision.
+
+SC-004 Rejected top-priority case
+
+Setup / precondition: at least one featured top priority is rejected in the cycle.
+
+Expected surfaced behavior: rejected item returns to future-cycle evaluation.
+
+Expected workflow behavior: lower-ranked item does not automatically replace rejected featured slot in the same cycle.
+
+Expected output behavior: current cycle may show fewer than two approved top priorities.
+
+SC-005 Zero-approved-priority weekly cycle case
+
+Setup / precondition: both featured priorities are rejected or otherwise not approved.
+
+Expected surfaced behavior: the cycle may end with zero approved featured priorities.
+
+Expected workflow behavior: no automatic same-cycle replacement from lower-ranked queue.
+
+Expected output behavior: cycle summary should remain valid even with zero approved featured items.
+
+SC-006 Grouped-action case
+
+Setup / precondition: multiple child items truly belong to one business decision case.
+
+Expected surfaced behavior: one grouped action may be created instead of many separate actions.
+
+Expected workflow behavior: one owner, one action type, partial child resolution visible, group remains open until all children are resolved or removed.
+
+Expected output behavior: grouped action should appear clearly without child-level overengineering.
+
+SC-007 Management-elevated item case
+
+Setup / precondition: management elevates an additional item beyond the normal top-2 flow.
+
+Expected surfaced behavior: management-priority item remains visible and active outside the normal top-2 cycle.
+
+Expected workflow behavior: it still follows role/approval discipline.
+
+Expected output behavior: should appear distinctly from normal featured items where appropriate.
+
+SC-008 Material-event 3rd-priority case
+
+Setup / precondition: a materially important out-of-cycle event occurs.
+
+Expected surfaced behavior: a 3rd top priority may appear without replacing the normal top-2 logic.
+
+Expected workflow behavior: still respects approval/assignment rules.
+
+Expected output behavior: management summary should explain why the 3rd priority was elevated.
+
+SC-009 Low-confidence important issue
+
+Setup / precondition: important issue exists, but support is weak or incomplete.
+
+Expected surfaced behavior: may appear in cautious review/exception posture rather than as strong certainty.
+
+Expected workflow behavior: can be reviewed, but wording and confidence should remain cautious.
+
+Expected output behavior: management-facing wording should acknowledge limited confidence.
+
+SC-010 Completed then archived case
+
+Setup / precondition: approved active item reaches completed state.
+
+Expected surfaced behavior: item shows as completed briefly before archive.
+
+Expected workflow behavior: item then moves to archive/history and does not reopen.
+
+Expected output behavior: archive/history preserves useful minimum content.
+
+SC-011 Protected-note visibility case
+
+Setup / precondition: management-only protected note exists on an action.
+
+Expected surfaced behavior: management/reviewer may see protected note, ordinary user may not.
+
+Expected workflow behavior: protected note does not alter role boundary.
+
+Expected output behavior: ordinary non-management view should not expose the protected note.
+
+SC-012 Ordinary export restriction case
+
+Setup / precondition: action includes protected internal content.
+
+Expected surfaced behavior: ordinary export still respects visibility class.
+
+Expected workflow behavior: no special workflow exception should leak restricted content.
+
+Expected output behavior: ordinary export should exclude protected content; restricted/internal export may show deeper detail where allowed.
+
+7. Workflow Transition Examples
+
+Featured -> Approved -> Awaiting Acceptance -> Active -> Completed -> Archived
+
+Featured -> Rejected for Cycle -> Future Cycle Evaluation
+
+Featured -> Approved -> Active -> Holdover -> Completed -> Archived
+
+Featured -> Approved -> Awaiting Acceptance -> timeout/escalation visibility -> reassignment or continued follow-up
+
+8. Expected Results for Core IAM Behaviors
+
+Expected results summary
+
+Behavior area
+
+Expected result
+
+Top-2 surfacing
+
+Two featured priorities surface when supported and approved for display
+
+Rejection-cycle rule
+
+Rejected top item does not auto-replace in same cycle
+
+Holdover separation
+
+Holdovers remain visible separately from new priorities
+
+Management-priority handling
+
+Elevated item can remain active outside top-2 cycle
+
+Material-event handling
+
+3rd priority can appear without replacing top-2 logic
+
+Grouped-action rule
+
+One business case, one owner, one action type
+
+Low-confidence handling
+
+Important weakly supported issue surfaces cautiously
+
+Protected-note rule
+
+Management-only notes not visible to ordinary users
+
+Ordinary export restriction
+
+Protected content excluded from ordinary export
+
+Completion / archive behavior
+
+Completed briefly visible, then archived, never reopened
+
+9. Pass / Fail Matrix
+
+Pass / fail matrix
+
+#
+
+Test Area
+
+Expected Result
+
+Pass Condition
+
+Fail Condition
+
+1
+
+Top-2 featured surfacing
+
+Top 2 appear when normal surfacing support exists
+
+Featured priorities surface correctly
+
+Top 2 logic fails or surfaces wrong behavior
+
+2
+
+Rejection-cycle behavior
+
+Rejected featured item returns to future cycle evaluation
+
+No same-cycle auto-replacement occurs
+
+Lower-ranked item auto-fills rejected slot
+
+3
+
+Zero-approved week
+
+Weekly cycle may end with zero approved featured priorities
+
+Cycle remains valid without forced replacement
+
+System forces replacement or invalidates cycle
+
+4
+
+Holdover separation
+
+Holdovers remain separate from new priorities
+
+Holdover section or logic remains distinct
+
+Holdovers merge into new-priority ranking incorrectly
+
+5
+
+Management-priority item
+
+Elevated item remains active outside normal top-2 cycle
+
+UI/workflow preserves elevated item correctly
+
+Elevated item disappears or is forced into standard slot incorrectly
+
+6
+
+Material-event 3rd priority
+
+3rd priority may appear when justified
+
+3rd priority appears without breaking top-2 logic
+
+System blocks justified 3rd priority or replaces top-2 incorrectly
+
+7
+
+Grouped-action owner/action-type rule
+
+One business case, one owner, one action type
+
+Grouped action behaves conservatively
+
+Grouped action supports multiple owners/types improperly
+
+8
+
+Grouped partial resolution
+
+Partial child resolution remains visible
+
+Group stays open until all children resolved/removed
+
+Group closes prematurely or hides partial progress
+
+9
+
+Low-confidence important issue
+
+Surfaces cautiously, not as false certainty
+
+Cautious posture/wording shown
+
+Displayed as strong certainty despite weak support
+
+10
+
+Protected-note visibility
+
+Ordinary user cannot see protected note
+
+Protected note hidden from ordinary view
+
+Protected note leaks to ordinary user
+
+11
+
+Ordinary export restriction
+
+Protected content excluded from ordinary export
+
+Ordinary export respects visibility
+
+Protected content leaks into ordinary export
+
+12
+
+Completed to archive behavior
+
+Completed item visible briefly, then archived
+
+Archive behavior works and no reopen occurs
+
+Completed/archive reopen or skip history logic
+
+10. Critical Failure Rules
+
+Rejected top priorities auto-fill from lower-ranked items in same cycle.
+
+Grouped actions allow multiple owners or multiple action types in one group.
+
+Completed/archived items reopen in V1.
+
+Weak-data case is displayed as strong certainty or precise truth.
+
+Protected notes leak into ordinary non-management view.
+
+Protected content leaks into ordinary export.
+
+Keystroke-targeted export behavior violates tab-delimited .txt rule if that behavior is invoked.
+
+11. Relationship to the Active UAT Workbook
+
+This document provides sample scenario and expected-result foundations.
+
+The IAM UAT / Validation Test Workbook v1.1 remains the formal pass/fail control file.
+
+Scenario detail from this document should map into the UAT workbook buckets and test cases.
+
+12. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes test principle, sample run setup, expanded scenario detail, pass/fail matrix, visibility/export expectations, UAT workbook linkage, and internal review summary.
+
+Gaps
+
+Pass with carry-forward
+
+Exact real-world pilot data files can still be added later if desired.
+
+Errors
+
+Pass
+
+Validation-stage rules and protected-visibility logic preserved.
+
+Recommendations
+
+Included
+
+Use this file as the scenario/expected-result backbone and use the active UAT workbook as the formal pass/fail control.
+
+Ease of use
+
+Pass
+
+Document now functions as a real sample-test/expected-results guide rather than a short scenario list.
+
+
+
+13. Playbook-Library Validation Additions
+
+Add scenario coverage for Normal Sell-Through / Controlled Runoff as a distinct overstock path that preserves margin when demand remains credible and RSE correction is in place or underway.
+
+Add scenario coverage for correct playbook-selection boundaries between Stop Replenishment, Controlled Runoff, Markdown, Liquidate, and Write-Off.
+
+Add expected-result checks that Follow-Up Measurement is required after any material recovery action.
+
+Add expected-result checks that playbook detail respects visibility and protected-note rules.

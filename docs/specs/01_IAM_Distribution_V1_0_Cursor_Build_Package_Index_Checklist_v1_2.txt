@@ -1,0 +1,351 @@
+Document 1 - IAM Distribution V1.0 Cursor Build Package Index / Checklist
+
+Full detailed consolidated version
+
+Status: Active working package index and build checklist for IAM Cursor handoff.
+
+1. Purpose
+
+This document is the package index and build checklist for Inventory Action Manager - Distribution V1.0. It defines what the IAM package contains, how it should be loaded into Cursor, what the V1 build must include, and which rules cannot be violated.
+
+2. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+These active handoff files should be used together with the numbered package documents below. The numbered package gives the staged load structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Product Summary
+
+IAM-Distribution helps a distribution business decide what inventory action matters most now, which issues should be surfaced first, who should own them, how they should move through approval, assignment, holdover, completion, and archive, and how management should keep current work and completed history clearly separated.
+
+IAM is not a replenishment settings engine, a purchasing execution system, or a general dashboard without action discipline.
+
+5. Cursor Load Order
+
+Stage
+
+Documents to load
+
+Cursor goal
+
+User checkpoint
+
+Stage 1 - Foundation
+
+00 Package Guide, 01 Package Index, 02 Build Instruction Brief
+
+Understand what IAM is, what it is not, V1 boundaries, and build sequence
+
+Ask Cursor to summarize hard rules and proposed build plan before code
+
+Stage 2 - Data and Logic
+
+03 Data Model, 04 Calculation Logic
+
+Build IAM domains, mapping, workflow states, ranking logic, confidence logic, completion/archive logic
+
+Ask Cursor to list tables, states, rules, and conflicts before implementation
+
+Stage 3 - Workflow and Outputs
+
+05 Screen Workflow, 06 Output Export
+
+Build workflow screens, views, archive/history, visibility rules, outputs and exports
+
+Ask Cursor to explain UI flow and visibility/export rules before building
+
+Stage 4 - Testing and Acceptance
+
+07 Test Data, 08 Acceptance Checklist
+
+Validate module using IAM sample scenarios and pass/fail controls
+
+Run sample test and compare behavior to expected results
+
+6. How Cursor Should Use This File
+
+Use this file first to understand the package structure and build sequence.
+
+Do not treat this file as the only logic file.
+
+After this file, move to the build instruction brief, then the data/logic documents, then workflow/output documents, then testing/acceptance documents.
+
+Use this file as the package-control checklist while building, not as the sole product-definition source.
+
+7. Document Inventory
+
+File
+
+Document
+
+Purpose
+
+Cursor use
+
+01
+
+Cursor Build Package Index / Checklist
+
+Package-control map, build scope, hard rules, load sequence
+
+Use first for package structure and control
+
+02
+
+Cursor Build Instruction Brief
+
+Plain-English product definition and build instructions
+
+Use to understand business logic and V1 scope
+
+03
+
+Data Model and Field Mapping Guide
+
+Tables, fields, mapping, confidence, source logic
+
+Use for database/schema/import design
+
+04
+
+Calculation and Decision Logic Guide
+
+Ranking, workflow, grouping, confidence, completion, archive logic
+
+Use for back-end logic and state behavior
+
+05
+
+Screen and Workflow Specification
+
+Workflow modules, screens/views, user paths, warnings, next actions
+
+Use for UI/workflow build
+
+06
+
+Output and Export Specification
+
+Management/internal outputs, export controls, archive/history and visibility
+
+Use for reporting/export layer
+
+07
+
+Sample Test Data and Expected Results
+
+IAM sample scenarios and expected behavior
+
+Use for validation test cases
+
+08
+
+Developer Acceptance Checklist
+
+Build acceptance criteria, readiness levels, blockers, sign-off
+
+Use for build-readiness review
+
+8. Required Build Components
+
+Component
+
+Required V1 capability
+
+Run Setup
+
+Create IAM run/workspace with company and review cycle context
+
+Source-Agnostic Intake and Mapping Layer
+
+Accept mapped evidence into IAM domains and preserve confidence/source logic
+
+Priority Engine
+
+Rank top 2 priorities with approved override and rejection-cycle rules
+
+Workflow Engine
+
+Approval, rejection, assignment, awaiting acceptance, active, holdover, completed, archived
+
+Management-Priority Handling
+
+Support elevated items and out-of-cycle 3rd-priority behavior where approved
+
+Grouped Action Handling
+
+Conservative grouped-action behavior inside Action Detail View
+
+Archive / History Layer
+
+Completed visible once then archived, useful history preserved, no reopen
+
+Role / Visibility Controls
+
+Management-only notes protection and ordinary-view/export restrictions
+
+Minimal Functional UI
+
+Validation-stage interface, not enterprise-polished UI
+
+Outputs and Exports
+
+Management/internal outputs and export visibility controls
+
+Testing / Acceptance
+
+Pass IAM UAT workbook and package acceptance controls before controlled handoff
+
+9. V1 In Scope and Out of Scope
+
+In Scope
+
+One-company-per-workspace validation build
+
+Top 2 featured weekly priorities
+
+Management-priority item handling
+
+Approval / rejection / assignment workflow
+
+Holdover movement
+
+Grouped-action handling inside Action Detail View
+
+Completed and archived history behavior
+
+Role-based visibility and protected notes handling
+
+Validation-stage outputs and exports
+
+Out of Scope for V1
+
+Multi-company shared live workspace
+
+User-adjustable ranking weights
+
+Separate grouped-action screen
+
+Heavy admin/configuration layer
+
+Enterprise-complete export-permission customization
+
+Overbuilt production UI polish
+
+RSE-style settings write-back behavior
+
+Waiting for perfect final source mapping before building core validation workflow
+
+10. Pre-Handoff Checklist
+
+Checklist item
+
+Status target
+
+Package guide active
+
+Pass
+
+Package checklist active
+
+Pass
+
+Active build brief included
+
+Pass
+
+Active UAT workbook included
+
+Pass
+
+Package files internally reviewed
+
+Pass
+
+Conflicting legacy wording removed or clearly superseded
+
+Pass
+
+Validation-stage boundary preserved
+
+Pass
+
+Grouped-action rule preserved
+
+Pass
+
+No-reopen / archive-history rule preserved
+
+Pass
+
+Visibility / export restriction rules preserved
+
+Pass
+
+Keystroke .txt rule preserved
+
+Pass
+
+Remaining known gap honestly stated as source mapping
+
+Pass
+
+11. Package-Control Note
+
+Use this file as the working package-control checklist during IAM Cursor handoff. Updated package files should go through internal review before final package lock.
+
+
+
+12. Inventory Cash Recovery Playbook Library Integration
+
+Add Document 9 - IAM Inventory Cash Recovery Action Playbook Library to the active IAM package set.
+
+Treat the playbook library as the formal action-library reference for trapped-cash / excess / weak-moving inventory cases.
+
+Use the library together with the active build brief and UAT workbook.
+
+Required package-control implications
+
+Package references should show that IAM now includes a formal playbook group for inventory cash recovery actions.
+
+Cursor should treat the playbook library as a referenced action-framework document, not as a replacement for core logic files.
+
+Pre-handoff checklist should include confirmation that the playbook library is included and referenced in the relevant IAM package files.

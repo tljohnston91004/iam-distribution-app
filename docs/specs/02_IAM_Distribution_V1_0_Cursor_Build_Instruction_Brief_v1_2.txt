@@ -1,0 +1,189 @@
+Document 2 - IAM Distribution V1.0 Cursor Build Instruction Brief
+
+Full detailed consolidated version
+
+Status: Active working build instruction brief for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package brief should be used together with those active control files. The numbered package gives the staged structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+2. Plain-English Product Definition
+
+Inventory Action Manager - Distribution helps a distributor decide what inventory action matters most now, which issues should be surfaced first, who should own them, how they should move through approval, assignment, holdover, completion, and archive, and how management should keep current work and completed history clearly separated.
+
+What IAM is not
+
+IAM is not a replenishment settings engine.
+
+IAM is not a purchasing execution system.
+
+IAM is not a write-back settings tool.
+
+IAM is not a full enterprise workflow platform in V1.
+
+IAM is not a replacement for RSE or IFM.
+
+IAM is not a general dashboard without action discipline.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Core Business Question
+
+Based on current inventory conditions, demand evidence, cash impact, service/operational risk, confidence level, and supportable data, what inventory action matters most now, what should be approved or rejected in this cycle, who should own the approved work, and how should unfinished work move into holdover or completed/archive status?
+
+5. Division of Responsibility
+
+Question
+
+Responsible product/system
+
+IAM treatment
+
+What settings should replenishment run from?
+
+RSE
+
+Outside IAM; IAM may reference resulting signals
+
+How much inventory can we responsibly fund?
+
+IFM
+
+Outside IAM; IAM may reference resulting financial context
+
+What inventory action matters most now?
+
+IAM
+
+Surface, rank, and manage action
+
+Who approves and owns the action?
+
+Management / IAM workflow
+
+IAM routes approval, assignment, and follow-through
+
+Where operational item changes happen?
+
+POS/ERP/buyer workflow outside IAM
+
+IAM does not execute settings or POs in V1
+
+6. How IAM Identifies Action Candidates
+
+IAM identifies action candidates from mapped evidence and business context rather than from one single report.
+
+New priorities may come from trapped-cash conditions, stock-risk conditions, excess/weak-demand conditions, grouped business cases, or management-elevated issues.
+
+Holdovers remain separate from new priorities and continue as active management work until resolved, paused, completed, or otherwise handled.
+
+Grouped business cases should be treated conservatively and only when multiple items truly belong to one business decision case.
+
+Management may elevate additional items when needed, and materially important out-of-cycle events may create a 3rd top priority.
+
+Confidence posture matters. IAM should use supportable evidence and avoid false precision.
+
+Weakly supported but important issues may appear in a cautious review/exception posture rather than disappearing entirely.
+
+7. Weekly Operating Model
+
+IAM V1 is built around a weekly management rhythm.
+
+Review the top 2 featured priorities first.
+
+Approve, reject, and assign in the same weekly cycle.
+
+Rejected top items do not auto-fill with lower-ranked items in the same cycle.
+
+A weekly cycle may end with zero approved top priorities.
+
+Approved items should have owner and due/review date before leaving featured status.
+
+Unresolved items move to holdover automatically.
+
+Holdovers remain active and separate from new-priority ranking.
+
+Management-priority items may remain active outside the normal top-2 cycle.
+
+Completed items remain briefly visible, then archive.
+
+8. Workflow and State Philosophy
+
+IAM is a workflow-and-action product, not only a scoring product.
+
+The state engine should support surfaced/featured, approved, rejected for cycle, awaiting acceptance, active, holdover, paused, completed, and archived.
+
+Awaiting acceptance is a real pre-active state and should support timeout/escalation visibility.
+
+Completed and archived items never reopen in V1; similar future issues become new actions with new IDs.
+
+9. V1 Developer Instructions
+
+Build the workflow/state engine and management dashboard first.
+
+Preserve explainability and management control.
+
+Keep the UI minimal and functional for validation-stage use, not enterprise-polished.
+
+Do not overbuild configuration/admin layers before core workflow behavior is proven.
+
+Do not build a separate grouped-action screen in V1; grouped actions stay inside Action Detail View.
+
+Preserve role-based visibility and management-only notes protection from the start.
+
+Make archive/history useful rather than a dead status bucket.
+
+Do not wait for perfect final source mapping before building the core validation-stage behavior.
+
+Use the active build brief and UAT workbook as current control references while implementing the numbered package.
+
+
+
+10. Inventory Cash Recovery Playbook Library Use
+
+IAM should use the Inventory Cash Recovery Action Playbook Library when trapped-cash or excess-inventory issues need a defined action path.
+
+IAM should own surfacing, prioritization, playbook recommendation/selection, owner assignment, timing, follow-up, and measurement.
+
+The playbook library should be used to route actions such as stop replenishment, vendor return/credit, markdown/discount, bundle/pair, sales/account targeting, transfer/reallocate, normal sell-through/controlled runoff, liquidate/exit, write-off/scrap approval, RSE correction, and follow-up measurement.
+
+Cursor should preserve the rule that overstock is not automatically distressed inventory; controlled normal sell-through may be the preferred path when demand remains credible and RSE correction is in place or underway.

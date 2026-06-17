@@ -1,0 +1,521 @@
+Document 10 - IAM-RSE-IFM Signal / Data Exchange Map
+
+Cross-module integration addendum for IAM development in Cursor
+
+Status: Active working cross-module integration addendum for IAM Cursor/development handoff
+
+1. Purpose
+
+This document defines how IAM, RSE, and IFM should communicate while remaining separate modules. It is meant to guide Cursor/development so IAM can consume root-cause and funding signals without taking over RSE or IFM calculation authority.
+
+2. Module Roles
+
+RSE
+
+Owns replenishment settings logic
+
+Owns Min/Max review
+
+Owns classification logic
+
+Owns replenishment-root-cause correction
+
+IFM
+
+Owns inventory funding capacity
+
+Owns inventory capital discipline
+
+Owns cash-pressure / funding-urgency context
+
+IAM
+
+Owns action selection
+
+Owns action tracking and owner assignment
+
+Owns due/review timing, holdovers, completion/archive, and follow-up measurement
+
+Owns trapped-cash recovery playbooks
+
+3. Communication Principle
+
+RSE informs IAM about root cause and replenishment-pressure signals.
+
+IFM informs IAM about economic urgency and patience tolerance.
+
+IAM sends action status and outcome feedback back to RSE and IFM.
+
+Each module keeps its own calculation authority; signals should support decisions, not silently rewrite another module’s logic.
+
+4. Signal Types
+
+Informational: useful context only
+
+Advisory: strong recommendation / decision-support input
+
+Workflow-Relevant: affects IAM routing, follow-up, or escalation
+
+Outcome / Feedback: closes the loop after action is taken
+
+5. RSE → IAM Signal Map
+
+Signal
+
+Type
+
+Purpose
+
+IAM Use
+
+Item / Group ID
+
+Required reference
+
+Match object across modules
+
+Link issue to same inventory object
+
+RSE root-cause flag
+
+Advisory
+
+Replenishment logic likely caused/worsened issue
+
+Support RSE correction playbook routing
+
+Classification issue flag
+
+Advisory
+
+Classification likely wrong
+
+Support root-cause correction logic
+
+Min/Max issue flag
+
+Advisory
+
+Bad stocking parameters likely exist
+
+Support stop-buy / correction path
+
+Replenishment overbuy risk flag
+
+Advisory
+
+Continued replenishment pressure against weak demand
+
+Helps IAM escalate or route runoff vs stronger action
+
+RSE review recommended
+
+Workflow-Relevant
+
+Item/group should be reviewed in RSE
+
+Can trigger Replenishment Setting Correction through RSE
+
+RSE review in progress
+
+Informational
+
+Correction work has started
+
+Avoid duplicate routing and show active dependency
+
+RSE correction completed
+
+Outcome / Feedback
+
+Settings/classification updated
+
+Use in recurrence and follow-up measurement
+
+Recurrence-risk remains high
+
+Advisory
+
+Issue may continue after partial review
+
+Keep action open or escalate
+
+RSE review date / completion date
+
+Informational
+
+Timing support
+
+Use in follow-up cadence and audit trail
+
+6. IAM → RSE Signal Map
+
+Signal
+
+Type
+
+Purpose
+
+RSE Use
+
+Item / Group ID
+
+Required reference
+
+Match object across modules
+
+Link feedback to same item/group
+
+Repeated trapped-cash flag
+
+Advisory
+
+Item/group continues to trap cash
+
+Support RSE prioritization
+
+Repeated excess-inventory flag
+
+Advisory
+
+Inventory remains too high after action
+
+Support root-cause review
+
+Normal runoff failing due to continued replenishment pressure
+
+Workflow-Relevant
+
+Recovery path undermined by ongoing buy pressure
+
+Prioritize correction
+
+Stop replenishment action active
+
+Informational
+
+IAM selected stop-buy path
+
+Give RSE current action context
+
+RSE correction requested by IAM
+
+Workflow-Relevant
+
+Formal request for RSE review/correction path
+
+Queue or prioritize work
+
+Recovery action status
+
+Outcome / Feedback
+
+Shows whether IAM action succeeded / failed / escalated
+
+Support urgency understanding
+
+Recurrence after prior action
+
+Outcome / Feedback
+
+Issue returned after prior correction/action
+
+Strong root-cause signal
+
+Follow-up measurement result
+
+Outcome / Feedback
+
+Shows whether inventory burden improved
+
+Evaluate correction effectiveness
+
+7. IFM → IAM Signal Map
+
+Signal
+
+Type
+
+Purpose
+
+IAM Use
+
+Item / Group ID or segment reference
+
+Required reference
+
+Match across modules
+
+Tie funding/cash signal to action target
+
+Cash-pressure flag
+
+Advisory
+
+Business cash pressure elevated
+
+Shorten tolerance for slow recovery
+
+Funding-constrained flag
+
+Advisory
+
+Inventory capital capacity is tight
+
+Increase urgency of trapped-cash action
+
+Inventory-capital severity signal
+
+Advisory
+
+Severity of dollars tied up
+
+Help rank or escalate action
+
+Patience tolerance signal
+
+Advisory
+
+Whether slower runoff is acceptable
+
+Support runoff vs aggressive recovery choice
+
+Working-capital urgency level
+
+Advisory
+
+How quickly cash must be released
+
+Support playbook selection
+
+Open-commitment / PO pressure flag
+
+Informational / Advisory
+
+Future funding pressure tied to inventory
+
+Support stop-buy / escalation path
+
+Financial review recommended
+
+Workflow-Relevant
+
+Management review due to financial exposure
+
+Can escalate IAM action priority
+
+Funding constraint review date
+
+Informational
+
+Timing support
+
+Use in follow-up cadence
+
+8. IAM → IFM Signal Map
+
+Signal
+
+Type
+
+Purpose
+
+IFM Use
+
+Item / Group ID or segment reference
+
+Required reference
+
+Match target
+
+Tie action feedback to funding view
+
+Trapped-cash issue identified
+
+Advisory
+
+Active inventory cash problem exists
+
+Improve IFM visibility
+
+Selected recovery playbook
+
+Workflow-Relevant
+
+Actual recovery path chosen
+
+Interpret timing and likely result path
+
+Controlled runoff active
+
+Informational / Advisory
+
+Slower margin-preserving path chosen
+
+Judge patience vs urgency
+
+Aggressive recovery active
+
+Informational / Advisory
+
+Markdown/liquidation/write-off path underway
+
+Understand cash-release intent
+
+Recovery action owner / due date
+
+Informational
+
+Governance context
+
+Support related financial review if surfaced
+
+Recovery action status
+
+Outcome / Feedback
+
+Progress of recovery effort
+
+Update urgency view
+
+Measured cash release / inventory reduction
+
+Outcome / Feedback
+
+Whether action is working
+
+Evaluate actual improvement
+
+Escalation to stronger recovery action
+
+Workflow-Relevant
+
+Original action insufficient
+
+Increase urgency/severity context
+
+Unresolved trapped-cash carry-forward
+
+Outcome / Feedback
+
+Problem still open after cycle
+
+Continue financial pressure treatment
+
+9. Recommended IAM Decision Use of Incoming Signals
+
+From RSE
+
+Identify root-cause replenishment issues
+
+Trigger Replenishment Setting Correction through RSE
+
+Decide whether Stop Replenishment alone is enough
+
+Decide whether Controlled Runoff is credible
+
+Check whether recurrence risk should fall after correction
+
+From IFM
+
+Decide how much patience is acceptable
+
+Judge whether Controlled Runoff is still appropriate
+
+Decide whether to escalate to markdown, liquidation, write-off, or stronger management review
+
+10. Recommended Signal Priority Inside IAM
+
+1. IAM’s own issue evidence
+
+2. RSE root-cause / replenishment-pressure signals
+
+3. IFM cash-pressure / funding-urgency signals
+
+IAM should remain the action engine. RSE and IFM should influence IAM, not replace IAM’s purpose.
+
+11. Controlled Runoff Rule with RSE + IFM
+
+Prefer Normal Sell-Through / Controlled Runoff when demand is still credible, margin preservation matters, RSE correction is in place or underway, IFM does not indicate intolerable cash pressure, and item risk is manageable.
+
+Escalate to stronger recovery when RSE correction is absent or failing, IFM indicates high cash pressure / low patience tolerance, demand is too weak, runoff window is too long, or item risk is rising.
+
+12. Recommended Technical Design Rule
+
+Exchange signals as flags, status fields, advisory indicators, timestamps, and module-reference IDs.
+
+Do not use uncontrolled direct edits, opaque overrides, or one module silently rewriting another module’s decision layer.
+
+13. Recommended Integration Status Labels
+
+Not Sent
+
+Sent
+
+Received
+
+Acknowledged
+
+In Progress
+
+Completed
+
+Superseded
+
+Closed
+
+14. Minimum Viable Integration for V1
+
+Minimum viable RSE → IAM
+
+item/group ID
+
+root-cause flag
+
+classification issue flag
+
+Min/Max issue flag
+
+RSE review recommended
+
+RSE correction completed
+
+Minimum viable IFM → IAM
+
+item/group/segment reference
+
+cash-pressure flag
+
+funding-constrained flag
+
+patience tolerance signal
+
+Minimum viable IAM → RSE
+
+repeated trapped-cash flag
+
+stop replenishment active
+
+RSE correction requested
+
+follow-up result
+
+Minimum viable IAM → IFM
+
+trapped-cash issue identified
+
+selected recovery playbook
+
+action status
+
+measured cash release / unresolved carry-forward
+
+15. Package Placement Recommendation
+
+Use this as a standalone cross-module integration addendum.
+
+Also include it in the IAM Cursor package so Cursor sees IAM’s intended relationship with RSE and IFM during IAM development loading.
+
+16. Recommendation
+
+Best structure: RSE informs root cause, IFM informs economic urgency, and IAM manages action and feedback. Treat this as the cross-module integration rule: connected modules, separate decision authority.

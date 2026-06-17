@@ -1,0 +1,405 @@
+Document 5 - IAM Distribution V1.0 Screen and Workflow Specification
+
+Full detailed consolidated version
+
+Status: Active working screen and workflow specification for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package document should be used together with those active control files. The numbered package gives staged package structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+2. Purpose
+
+This document defines IAM screens, workflow modules, user roles, warning banners, next actions, workflow transitions, grouped-action behavior, archive/history presentation, and visibility treatment. In this document, 'module' means workflow grouping, not automatically a separate page.
+
+Cursor should not build a large collection of disconnected pages. V1 should stay inside the approved required screens unless a modal, detail section, or side panel is truly needed.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Screen Boundary Rule
+
+V1 should stay inside the four required screens unless a modal, panel, or detail section is truly needed.
+
+Workflow modules are workflow groupings, not automatically separate pages.
+
+Grouped actions must not create a standalone grouped-action screen in V1.
+
+The UI should be minimal and functional for validation-stage use, not over-polished like a production enterprise release.
+
+5. Required Screens
+
+Required screens
+
+Screen
+
+Purpose
+
+Management Dashboard
+
+Show top priorities, holdovers, management-priority items, warnings, and next best action
+
+Assigned User View
+
+Show actions owned by the current user with relevant status, due/review dates, and next steps
+
+Action Detail View
+
+Show action evidence, approvals, notes, grouped-action behavior, and timeline/state detail
+
+Completed Archive View
+
+Show useful completed/archive history and preserve non-reopen logic
+
+6. User Roles
+
+Core user roles
+
+Role
+
+Workflow responsibilities
+
+Restriction
+
+Admin / Internal Setup
+
+Workspace setup, role grants, review-cycle configuration
+
+Not a heavy enterprise admin layer in V1
+
+Management / Reviewer
+
+Approve, reject, assign, complete, elevate priorities, view protected notes
+
+Protected-note access
+
+Owner / Assignee
+
+Work assigned actions and update permitted status/progress details
+
+Role-appropriate limited view only
+
+7. Workflow Modules
+
+Run / Review Cycle Setup
+
+Data Intake and Evidence Readiness
+
+Priority Surfacing
+
+Approval / Rejection / Assignment
+
+Holdover Review
+
+Completion / Archive
+
+Follow-Up / History
+
+8. Screen-by-Screen Detail
+
+8.1 Management Dashboard
+
+Primary purpose: act as the owner-facing decision board for the current cycle.
+
+Display top 2 featured priorities prominently.
+
+Display holdovers separately from newly surfaced priorities.
+
+Display management-priority items separately where applicable.
+
+Display warning banners, confidence limitations, and next best action.
+
+Allow approve, reject, assign, and elevate actions from the appropriate management context.
+
+Must not expose management-only protected notes to ordinary non-management users.
+
+What belongs here
+
+Featured priorities
+
+Holdover summary
+
+Management-priority summary
+
+Warnings and confidence limitations
+
+Next best action
+
+High-level owner/action/date/status view
+
+What does not belong here
+
+Child-level grouped-action overengineering
+
+Large raw evidence dumps
+
+Protected management-only note detail for ordinary users
+
+Heavy configuration/admin layers
+
+8.2 Assigned User View
+
+Primary purpose: show users the actions they own or contribute to.
+
+Display assigned actions, current state, due/review dates, and next required step.
+
+Allow role-appropriate updates such as acknowledgement/acceptance, progress notes, and permitted status updates.
+
+Should keep the user focused on current work rather than the full management ranking model.
+
+Must respect role-based visibility and not leak restricted content.
+
+8.3 Action Detail View
+
+Primary purpose: give the full operational detail for one action.
+
+Show action title, action type, owner, state, first surfaced date, due/review date, confidence, and evidence summary.
+
+Show approval/rejection context and state history where appropriate.
+
+Show grouped-action behavior here rather than in a separate screen.
+
+Allow management-only protected notes in protected context only.
+
+Support state changes only when allowed by role and workflow rule.
+
+Grouped-action behavior inside Action Detail View
+
+Show that the parent action is one business decision case.
+
+Show child items simply and clearly rather than as a complex sub-application.
+
+Show partial child resolution visibly.
+
+Do not allow grouped actions with multiple owners or multiple action types.
+
+Keep grouped actions conservative and avoid child-level overengineering in V1.
+
+8.4 Completed Archive View
+
+Primary purpose: act as useful history, not a dead status bucket.
+
+Show completed items briefly before archive according to approved logic, then preserve them as archived history.
+
+Preserve action ID, label/title, action type, owner, first surfaced date, completed date, and original estimated impact where available.
+
+Actual achieved impact should appear only when easily supportable.
+
+Do not allow reopen behavior in V1.
+
+Later similar issues should appear as new actions with new IDs rather than reopening archived ones.
+
+9. Workflow Transition Behavior
+
+Core transitions
+
+Transition
+
+Required behavior
+
+Featured -> Approved
+
+Management approval required
+
+Featured -> Rejected for Cycle
+
+Rejected item returns to future-cycle evaluation
+
+Approved -> Awaiting Acceptance
+
+Assignment completed; item awaiting acknowledgement if applicable
+
+Awaiting Acceptance -> Active
+
+Owner/user has accepted or otherwise moved work active
+
+Active -> Holdover
+
+Still-open work rolls forward when unresolved
+
+Active -> Completed
+
+Completion approved; not automatic from progress alone
+
+Completed -> Archived
+
+Completed remains visible briefly, then moves to useful history
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle.
+
+A weekly cycle may end with zero approved top priorities.
+
+Holdover review may continue outside the exact weekly meeting without invalidating the cycle.
+
+10. Management-Priority and Holdover UI Behavior
+
+Top 2 featured priorities remain the core weekly focus.
+
+Management-elevated items may also appear where needed.
+
+Material-event 3rd priority may appear without replacing normal top-2 logic.
+
+Holdovers remain visible separately from newly surfaced items.
+
+Management-priority items may remain active outside the normal top-2 cycle.
+
+11. Visibility, Protected Notes, and Export Awareness
+
+Role-based visibility must shape what appears in the UI.
+
+Management-only notes are a protected visibility class.
+
+Ordinary non-management users must not see protected content in dashboard or action views.
+
+Ordinary exports must respect visibility rules as a practical minimum in V1.
+
+Action Detail View may expose protected context only in approved management/reviewer role context.
+
+12. Warning Banners and Next Best Action
+
+Example warning banners
+
+Warning condition
+
+Suggested banner / behavior
+
+Low confidence
+
+This issue is surfaced with limited confidence and should be reviewed cautiously.
+
+Insufficient support
+
+Normal confident surfacing is limited because required support is missing or weak.
+
+Holdover overload
+
+A growing number of holdovers may require management review and reprioritization.
+
+Acceptance timeout
+
+Assigned action is still awaiting acceptance and may require follow-up/escalation.
+
+Material-event escalation
+
+A materially important out-of-cycle issue may require management elevation.
+
+Next best action examples
+
+Module / screen
+
+Example next best action
+
+Management Dashboard
+
+Review top 2 featured priorities and approve/reject/assign in this cycle.
+
+Assigned User View
+
+Acknowledge ownership and update progress on active action.
+
+Action Detail View
+
+Review evidence, protected notes if authorized, and complete allowed state change.
+
+Completed Archive View
+
+Confirm prior action history without reopening archived work.
+
+13. Build Priority
+
+Build first: Management Dashboard, Action Detail View, state transition support, approval/rejection/assignment behavior, holdover and completion/archive behavior.
+
+Build second: Assigned User View, visibility refinements, grouped-action display refinements, warning banners, next best action guidance.
+
+Build later: broader UI refinements, deeper diagnostics, and non-essential polish beyond validation-stage need.
+
+14. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes module-vs-screen distinction, screen-by-screen detail, workflow transitions, grouped-action UI logic, management-priority/holdover behavior, visibility rules, and archive/history behavior.
+
+Gaps
+
+Pass with carry-forward
+
+Exact final UI styling/wireframe polish can still be handled later in Cursor.
+
+Errors
+
+Pass
+
+Validation-stage boundary, no separate grouped-action screen, and no-reopen rules preserved.
+
+Recommendations
+
+Included
+
+Use this file as the main workflow/UI backbone together with file 04, the active build brief, and the active UAT workbook.
+
+Ease of use
+
+Pass
+
+Document now functions as a real workflow/UI guide rather than a short screen list.
+
+
+
+15. Playbook Workflow and UI Behavior
+
+Management Dashboard should be able to show the recommended or selected cash-recovery playbook where relevant for trapped-cash/excess inventory actions.
+
+Action Detail View should show the selected playbook, why it was chosen, the assigned owner, the review window, and the follow-up measurement requirement.
+
+Grouped actions may still use one playbook recommendation where the grouped business case supports it.
+
+Normal Sell-Through / Controlled Runoff should appear as a distinct action path rather than being buried inside Stop Replenishment.
+
+Protected-note and visibility rules still apply to any playbook detail shown in the UI.

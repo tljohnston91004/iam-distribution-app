@@ -1,0 +1,175 @@
+IAM Package-Wide Versioning Standard
+
+Approved versioning rule for the IAM Cursor/development package
+
+Status: Active working package-control standard
+
+1. Purpose
+
+This standard defines how IAM package versions should work so the IAM package is easier to manage, easier to hand off to Cursor/development, and easier to update later without losing real document history.
+
+2. Recommended Versioning Structure
+
+A. Package Release Version
+
+This is the version for the entire active IAM Cursor package.
+
+Recommended package label:
+
+IAM Distribution Cursor Development Package — Release v1.0
+
+The package release version tells us:
+
+which full document set belongs together
+
+which package is the active handoff package
+
+when the package meaningfully changed as a whole
+
+B. Document Version
+
+Each document keeps its own real file version.
+
+Current document-version examples:
+
+file 00 = v1.1
+
+file 01 = v1.2
+
+file 02 = v1.2
+
+file 03 = v1.1
+
+file 04 = v1.2
+
+file 05 = v1.2
+
+file 06 = v1.2
+
+file 07 = v1.2
+
+file 08 = v1.2
+
+file 09 = v1.2
+
+IAM Cursor Build Brief = v1.3
+
+IAM UAT / Validation Test Workbook = v1.1
+
+The document version tells us:
+
+how many times that individual document changed
+
+which specific file was revised more recently
+
+the real revision history of that file
+
+3. Why This Is the Recommended Approach
+
+It keeps the package controlled as one set.
+
+It preserves real document revision history.
+
+It avoids fake version uniformity.
+
+It makes future updates easier.
+
+It lets a developer understand both which package to use and which version each document is on.
+
+4. What Should Not Be Done
+
+IAM should not force all files to share the same document version just to look cleaner.
+
+Examples of what should not be done:
+
+make every document v1.0
+
+make every document v1.2
+
+That would hide real file history and make later maintenance harder.
+
+5. Recommended Current Package Release Version
+
+The current IAM package should be labeled:
+
+IAM Distribution Cursor Development Package — Release v1.0
+
+This is appropriate because this is the first clean, integrated IAM Cursor package that includes:
+
+reviewed and updated files 00–08
+
+active build brief
+
+active UAT workbook
+
+integrated inventory cash recovery playbook library
+
+6. Display Rule
+
+The master package index and package-control documents should show both:
+
+Package-Level
+
+Package Release Version: v1.0
+
+Document-Level
+
+Document Version: the real file version for that document
+
+7. When the Package Release Version Should Change
+
+The package release version should move forward when the package meaningfully changes, such as:
+
+a new document is added
+
+a document is removed
+
+a major logic change is made
+
+a major workflow change is made
+
+the active handoff package materially changes
+
+8. When the Package Release Version Should Not Change
+
+The package release version should not move for every small edit.
+
+Examples that usually should not move the package release version by themselves:
+
+typo fixes
+
+light wording cleanup
+
+formatting-only changes
+
+very minor clarification that does not materially affect the package
+
+9. Recommended Future Version Movement
+
+Example:
+
+Package Release Version: v1.0 -> v1.1
+
+file 05: v1.2 -> v1.3
+
+file 09: v1.2 -> v1.3
+
+All other unchanged files keep their current versions.
+
+10. Recommended Implementation
+
+After approval, apply this standard by:
+
+creating a master package index / cover sheet that shows the Package Release Version, all active documents, and each document’s version
+
+updating the main package-control documents so they reference the package release version and the document versions separately
+
+11. Recommendation
+
+The recommended versioning structure for IAM is:
+
+Package Release Version + separate real Document Versions
+
+Approved current package release version:
+
+IAM Distribution Cursor Development Package — Release v1.0

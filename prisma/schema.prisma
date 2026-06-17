@@ -1,0 +1,302 @@
+// IAM — Inventory Action Manager (Distribution) V1.0
+// Stage 2 data model (doc 03). Enums: src/lib/iam/enums.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id           String   @id @default(uuid()) @map("company_id")
+  name         String   @map("company_name")
+  businessType String?  @map("business_type")
+  posSystem    String?  @map("pos_system")
+  active       Boolean  @default(true) @map("active_status")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  runs IamRun[]
+
+  @@map("companies")
+}
+
+model IamRun {
+  id              String   @id @default(uuid()) @map("iam_run_id")
+  companyId       String   @map("company_id")
+  company         Company  @relation(fields: [companyId], references: [id])
+  runName         String   @map("run_name")
+  reviewDate      DateTime @map("review_date")
+  reviewWeekStart DateTime @map("review_week_start")
+  reviewWeekEnd   DateTime @map("review_week_end")
+  reviewCadence   String   @default("weekly") @map("review_cadence")
+  runStatus       String   @default("Draft") @map("run_status")
+  cycleStatus     String   @default("Open") @map("cycle_status")
+  readinessStatus String   @default("Not Ready") @map("readiness_status")
+  runVersion      Int      @default(1) @map("run_version")
+  parentRunId     String?  @map("parent_run_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdBy       String   @default("pilot-user") @map("created_by")
+
+  sourceDocuments      SourceDocument[]
+  inventorySnapshots   InventorySnapshot[]
+  demandHistory        DemandHistory[]
+  receiptHistory       ReceiptHistorySummary[]
+  incomingSupply       IncomingSupply[]
+  actionCandidates     ActionCandidate[]
+  actions              Action[]
+  moduleSignals        ModuleSignal[]
+  dataGaps             DataGap[]
+  changeLogs           ChangeLog[]
+
+  @@map("iam_runs")
+}
+
+model SourceDocument {
+  id                 String   @id @default(uuid()) @map("source_document_id")
+  iamRunId           String   @map("iam_run_id")
+  run                IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  sourceSystemName   String   @map("source_system_name")
+  sourceDocumentName String   @map("source_document_name")
+  sourceArea         String?  @map("source_area_or_section")
+  sourceReportDate   DateTime? @map("source_report_date")
+  freshnessStatus    String   @default("Unknown") @map("freshness_status")
+  confidenceLevel    String   @default("Medium Confidence") @map("confidence_level")
+  uploadedBy         String?  @map("uploaded_or_entered_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  fieldMappings FieldMapping[]
+
+  @@map("source_documents")
+}
+
+model FieldMapping {
+  id                String         @id @default(uuid()) @map("field_mapping_id")
+  sourceDocumentId  String         @map("source_document_id")
+  sourceDocument    SourceDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  sourceFieldName   String         @map("source_field_name")
+  iamDomain         String         @map("iam_domain")
+  iamTable          String         @map("iam_table")
+  iamFieldName      String         @map("iam_field_name")
+  mappingConfidence String         @default("Medium Confidence") @map("mapping_confidence")
+  validationStatus  String         @default("needs review") @map("validation_status")
+
+  @@map("field_mappings")
+}
+
+model InventorySnapshot {
+  id              String   @id @default(uuid()) @map("inventory_snapshot_id")
+  iamRunId        String   @map("iam_run_id")
+  run             IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId     String   @map("sku_or_item_id")
+  description     String?
+  quantityOnHand  Float    @map("quantity_on_hand")
+  cost            Float?
+  inventoryValue  Float?   @map("inventory_value")
+  classification  String?
+  itemStatus      String?  @map("item_status")
+  vendorName      String?  @map("vendor_name")
+  dataConfidence  String   @default("Medium Confidence") @map("data_confidence")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("inventory_snapshots")
+}
+
+model DemandHistory {
+  id                        String  @id @default(uuid()) @map("demand_history_id")
+  iamRunId                  String  @map("iam_run_id")
+  run                       IamRun  @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId               String  @map("sku_or_item_id")
+  periodLabel               String  @map("period_label")
+  unitsSold                 Float   @map("units_sold")
+  grossSalesDollars         Float   @map("gross_sales_dollars")
+  returnsOrNegativeMovement Float?  @map("returns_or_negative_movement")
+  dataConfidence            String  @default("Medium Confidence") @map("data_confidence")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("demand_history")
+}
+
+model ReceiptHistorySummary {
+  id                  String    @id @default(uuid()) @map("receipt_history_id")
+  iamRunId            String    @map("iam_run_id")
+  run                 IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId         String    @map("sku_or_item_id")
+  firstPurchaseDate   DateTime? @map("first_purchase_date")
+  lastReceiptDate     DateTime? @map("last_receipt_date")
+  lastReceiptQuantity Float?    @map("last_receipt_quantity")
+  receiptCountLookback Int?     @map("receipt_count_lookback")
+  receivedQtyLookback Float?    @map("received_qty_lookback")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("receipt_history_summary")
+}
+
+model IncomingSupply {
+  id                 String    @id @default(uuid()) @map("incoming_supply_id")
+  iamRunId           String    @map("iam_run_id")
+  run                IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId        String    @map("sku_or_item_id")
+  openOrderQuantity  Float?    @map("open_order_quantity")
+  expectedReceiptDate DateTime? @map("expected_receipt_date")
+  backorderQuantity  Float?    @map("backorder_quantity")
+  dataConfidence     String    @default("Medium Confidence") @map("data_confidence")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("incoming_supply")
+}
+
+model ActionCandidate {
+  id                       String   @id @default(uuid()) @map("action_candidate_id")
+  iamRunId                 String   @map("iam_run_id")
+  run                      IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId              String?  @map("sku_or_item_id")
+  sourceType               String   @map("source_type")
+  actionType               String   @map("action_type")
+  candidateTitle           String   @map("candidate_title")
+  evidenceStrength         String   @map("evidence_strength")
+  estimatedCashImpact      Float?   @map("estimated_cash_impact")
+  serviceOperationalRisk   Boolean  @default(false) @map("service_operational_risk_flag")
+  serviceRiskScore         Float    @default(0) @map("service_risk_score")
+  cashImpactScore          Float    @default(0) @map("cash_impact_score")
+  priorityScore            Float    @default(0) @map("priority_score")
+  priorityCategory         String   @default("new_priority") @map("priority_category")
+  readinessLabel           String   @default("Ready with Limitations") @map("readiness_label")
+  managementPriorityFlag   Boolean  @default(false) @map("management_priority_flag")
+  confidenceLevel          String   @default("Medium Confidence") @map("confidence_level")
+  suppressedFlag           Boolean  @default(false) @map("suppressed_flag")
+  rankedPosition           Int?     @map("ranked_position")
+  detailJson               String?  @map("detail_json")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  actions Action[]
+
+  @@map("action_candidates")
+}
+
+model Action {
+  id                      String    @id @default(uuid()) @map("action_id")
+  iamRunId                String    @map("iam_run_id")
+  run                     IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  actionCandidateId       String?   @map("action_candidate_id")
+  candidate               ActionCandidate? @relation(fields: [actionCandidateId], references: [id], onDelete: SetNull)
+  skuOrItemId             String?   @map("sku_or_item_id")
+  actionTitle             String    @map("action_title")
+  actionType              String    @map("action_type")
+  actionStrength          String    @default("Monitor") @map("action_strength")
+  priorityScore           Float     @default(0) @map("priority_score")
+  priorityCategory        String    @default("new_priority") @map("priority_category")
+  workflowState           String    @default("Candidate") @map("workflow_state")
+  featuredSlot            Int?      @map("featured_slot")
+  ownerRole               String?   @map("owner_role_or_user")
+  ownerName               String?   @map("owner_name")
+  firstSurfacedDate       DateTime? @map("first_surfaced_date")
+  dueDate                 DateTime? @map("due_date")
+  reviewDate              DateTime? @map("review_date")
+  completedDate           DateTime? @map("completed_date")
+  archivedDate            DateTime? @map("archived_date")
+  rejectedForCycle        Boolean   @default(false) @map("rejected_for_cycle")
+  managementPriorityFlag  Boolean   @default(false) @map("management_priority_flag")
+  groupedActionFlag       Boolean   @default(false) @map("grouped_action_flag")
+  visibilityClass         String    @default("Management Visible") @map("visibility_class")
+  confidenceLevel         String    @default("Medium Confidence") @map("confidence_level")
+  originalEstimatedImpact Float?    @map("original_estimated_impact")
+  actualAchievedImpact    Float?    @map("actual_achieved_impact")
+  detailJson              String?   @map("detail_json")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  groupedItems GroupedActionItem[]
+  notes        ActionNote[]
+  archiveCopy  ActionHistoryArchive?
+
+  @@map("actions")
+}
+
+model GroupedActionItem {
+  id               String @id @default(uuid()) @map("grouped_action_item_id")
+  actionId         String @map("action_id")
+  action           Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  childReferenceId String @map("child_reference_id")
+  childStatus      String @default("open") @map("child_status")
+  childNote        String? @map("child_note")
+
+  @@map("grouped_action_items")
+}
+
+model ActionNote {
+  id              String   @id @default(uuid()) @map("note_id")
+  actionId        String   @map("action_id")
+  action          Action   @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  noteType        String   @map("note_type")
+  visibilityClass String   @map("visibility_class")
+  noteText        String   @map("note_text")
+  createdBy       String?  @map("created_by")
+  createdDate     DateTime @default(now()) @map("created_date")
+
+  @@map("notes")
+}
+
+model ActionHistoryArchive {
+  id                      String   @id @default(uuid()) @map("archive_record_id")
+  actionId                String   @unique @map("action_id")
+  action                  Action   @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  iamRunId                String   @map("iam_run_id")
+  actionTitle             String   @map("action_title")
+  actionType              String   @map("action_type")
+  ownerRoleOrUser         String?  @map("owner_role_or_user")
+  firstSurfacedDate       DateTime @map("first_surfaced_date")
+  completedDate           DateTime? @map("completed_date")
+  archivedDate            DateTime @map("archived_date")
+  originalEstimatedImpact Float?   @map("original_estimated_impact")
+  actualAchievedImpact    Float?   @map("actual_achieved_impact")
+
+  @@map("action_history_archive")
+}
+
+model ModuleSignal {
+  id                 String   @id @default(uuid()) @map("module_signal_id")
+  iamRunId           String   @map("iam_run_id")
+  run                IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  sourceModule       String   @map("source_module")
+  signalType         String   @map("signal_type")
+  signalCategory     String   @default("Advisory") @map("signal_category")
+  integrationStatus  String   @default("Received") @map("integration_status")
+  skuOrItemId        String?  @map("sku_or_item_id")
+  summary            String?
+  payloadJson        String?  @map("payload_json")
+  confidenceLevel    String   @default("Medium Confidence") @map("confidence_level")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("module_signals")
+}
+
+model DataGap {
+  id               String @id @default(uuid()) @map("data_gap_id")
+  iamRunId         String @map("iam_run_id")
+  run              IamRun @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  affectedArea     String @map("affected_area")
+  gapDescription   String @map("gap_description")
+  severity         String @default("confidence limiter")
+  blockingStatus   String @default("partial") @map("blocking_status")
+  status           String @default("open")
+  confidenceImpact String @map("confidence_impact")
+
+  @@map("data_gaps")
+}
+
+model ChangeLog {
+  id         String   @id @default(uuid()) @map("change_log_id")
+  iamRunId   String   @map("iam_run_id")
+  run        IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  action     String
+  detail     String?
+  changedBy  String   @default("pilot-user") @map("changed_by")
+  changedAt  DateTime @default(now()) @map("changed_at")
+
+  @@map("change_logs")
+}

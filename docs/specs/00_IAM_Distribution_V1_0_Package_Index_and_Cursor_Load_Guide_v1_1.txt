@@ -1,0 +1,121 @@
+IAM Distribution V1.0 Package Index and Cursor Load Guide
+
+Individual unzipped DOCX files - no ZIP required
+
+Status: Active working package-control guide for IAM Cursor handoff and staged Cursor loading.
+
+1. Purpose
+
+This guide explains how to load the IAM package into Cursor in stages. The package is provided as individual DOCX files rather than inside a ZIP folder. It is the front-door package-control file for the IAM Cursor handoff set.
+
+2. Active Front-Door Handoff Files
+
+00 Package Guide - active package-control and staged load guide
+
+01 Package Index / Checklist - active package map and build checklist
+
+02 Build Instruction Brief - active plain-English build brief inside the package
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+The staged package documents and the active build brief / UAT workbook should be treated together as the active IAM Cursor handoff path.
+
+3. Stage Load Order
+
+Stage
+
+Load these files
+
+Purpose
+
+1 - Foundation
+
+00, 01, 02
+
+Product intent, hard rules, package structure, build boundary, and build sequence
+
+2 - Data and Logic
+
+03, 04
+
+Data model, field mapping, workflow states, ranking logic, confidence logic, and archive/history logic
+
+3 - Workflow and Outputs
+
+05, 06
+
+Screens, workflow behavior, role/visibility rules, outputs, exports, and archive/history presentation
+
+4 - Testing and Acceptance
+
+07, 08
+
+Sample test scenarios, expected results, validation controls, and developer acceptance readiness
+
+4. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+5. What Cursor Should Not Do
+
+Do not overbuild IAM as though it is already a final enterprise platform.
+
+Do not blur IAM into RSE or IFM logic.
+
+Do not treat lower-ranked items as automatic replacements for rejected top priorities in the same cycle.
+
+Do not build a separate grouped-action screen in V1.
+
+Do not overbuild admin/configuration layers before the core workflow is proven.
+
+Do not block the validation-stage build waiting for perfect source mapping.
+
+6. Recommended Cursor Prompt After Each Stage
+
+Summarize what you understand so far.
+
+List hard rules you must not violate.
+
+List what you will build next before writing code.
+
+Identify any conflicts or missing information before proceeding.
+
+7. Package Discipline Note
+
+Updated package files should go through internal review before final package lock.
+
+Use this guide as the front-door control file for the IAM Cursor package until a newer approved version replaces it.

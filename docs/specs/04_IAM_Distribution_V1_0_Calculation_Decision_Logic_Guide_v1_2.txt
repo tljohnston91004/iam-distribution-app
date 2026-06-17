@@ -1,0 +1,447 @@
+Document 4 - IAM Distribution V1.0 Calculation and Decision Logic Guide
+
+Full detailed consolidated version
+
+Status: Active working calculation and decision logic guide for IAM Cursor handoff.
+
+1. Active Front-Door IAM Handoff Files
+
+IAM Cursor Build Brief v1.3 - active detailed front-door build brief
+
+IAM UAT / Validation Test Workbook v1.1 - active validation control workbook
+
+This numbered package document should be used together with those active control files. The numbered package gives staged package structure; the active build brief and UAT workbook give the current control logic and validation path.
+
+2. Purpose and Core Decision Principle
+
+This document defines the calculation, ranking, workflow, grouped-action, confidence, completion, archive, and visibility rules IAM uses after source data has been mapped into IAM domains.
+
+IAM is not only a scoring product. It is a prioritization-plus-workflow-discipline product.
+
+The ranking engine exists to support a weekly management action model, not a passive exception list.
+
+Workflow state, visibility treatment, confidence posture, and archive behavior are part of IAM decision logic, not side features.
+
+Source-system differences should affect confidence, freshness, and supportability, not the core IAM action logic itself.
+
+3. Locked Hard Rules
+
+IAM is the inventory action engine. It does not replace RSE, IFM, or the broader Decision OS framework.
+
+IAM V1 is a validation-stage build, not a final enterprise version.
+
+One company per workspace/environment in V1.
+
+Priority weights are fixed in V1.
+
+Cash impact leads by default; service/operational risk can override only when clearly more dangerous.
+
+New priorities and holdovers rank separately.
+
+Top 2 remain the core weekly surfaced priorities.
+
+Rejected top priorities do not auto-replace with lower-ranked items in the same cycle and the week may end with zero approved top priorities.
+
+Management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+Management-priority items can remain active outside the normal top-2 cycle.
+
+Grouped actions require one business decision case, one owner, and one action type.
+
+Grouped actions are handled inside Action Detail View in V1.
+
+Completed and archived actions never reopen; similar later issues become new actions with new IDs.
+
+Management-only notes are protected and restricted content must not appear in ordinary non-management views or ordinary exports.
+
+Build should not stall waiting for perfect Keystroke / AIMS mapping. Final source mapping remains a separate addendum.
+
+Any file intended for Keystroke upload or re-import must be tab-delimited and end in .txt.
+
+CSV/XLSX may be used for review, mapping, QA, internal analysis, or customer review, but not as Keystroke import-ready files.
+
+4. Core Decision Flow
+
+Take inventory and evidence snapshot for the review cycle.
+
+Validate minimum support, freshness, and confidence posture.
+
+Identify action candidates from mapped evidence and business context.
+
+Classify evidence strength and confidence level.
+
+Rank new-priority candidates using cash-led logic with the approved override rule.
+
+Separate new priorities from holdovers.
+
+Surface the top 2 featured priorities.
+
+Allow management approval, rejection, and assignment in the same cycle.
+
+Require owner and due/review date before leaving featured status.
+
+Move unresolved work into holdover automatically.
+
+Manage grouped actions conservatively inside Action Detail View.
+
+Approve completion rather than auto-completing from status percentage alone.
+
+Show completed briefly, then archive as useful history.
+
+Preserve never-reopen rule and create new action IDs for later similar issues.
+
+5. Readiness / Support Logic
+
+Readiness labels
+
+Readiness label
+
+Use when
+
+IAM treatment
+
+Ready for Normal Surfacing
+
+Required support present and confidence sufficient
+
+Normal ranking and wording allowed
+
+Ready with Limitations
+
+Core logic can run but some support is partial or stale
+
+Run allowed with caution wording and visible limitations
+
+Cautious / Review Posture
+
+Important issue exists but support is weak or incomplete
+
+May surface more cautiously as review/exception case
+
+Insufficient Support for Normal Surfacing
+
+Required support missing or too weak
+
+Suppress normal confident surfacing or block affected area
+
+6. Ranking Logic
+
+Ranking rule summary
+
+Logic area
+
+IAM treatment
+
+Lead factor
+
+Cash impact leads by default when supportable
+
+Override
+
+Service/operational risk can outrank cash only when clearly more dangerous to the business
+
+Override threshold
+
+High threshold, not a small weighting modifier
+
+Urgency
+
+Not a separate top-level ranking factor
+
+Confidence
+
+Modifies strength/certainty, not lead rank
+
+Holdovers
+
+Rank separately from new priorities
+
+Featured count
+
+Top 2 weekly surfaced priorities
+
+Management elevation
+
+Management may elevate additional items
+
+Material event logic
+
+Material out-of-cycle event may create a 3rd top priority
+
+Rejection-cycle outcome
+
+Rejected top priorities do not auto-fill from lower queue in same cycle
+
+Ranking philosophy
+
+IAM should not pretend mathematical precision when support is weak.
+
+A high-cash-impact issue with weak support may still be visible, but should be treated more cautiously than a strongly supported issue.
+
+A severe service/operational risk case may outrank a cash case only when the business danger is clearly higher, not merely comparable.
+
+Lower-ranked items remain available for management review but do not automatically become featured replacements in the same cycle.
+
+7. Approval / Rejection / Assignment Logic
+
+Approval and transition rules
+
+Logic area
+
+Required behavior
+
+Featured review
+
+Top 2 should be reviewed first in the weekly cycle
+
+Approval
+
+Approved item enters assignment flow in same cycle
+
+Rejection
+
+Rejected item requires cycle rejection treatment and returns to future-cycle evaluation
+
+Assignment
+
+Approved item should have owner before leaving featured status
+
+Due / review date
+
+Required before leaving featured status
+
+Awaiting acceptance
+
+Real pre-active state after assignment and before active work
+
+Acceptance timeout
+
+Should create timeout/escalation visibility where supported
+
+Workflow transition examples
+
+Featured -> Approved -> Awaiting Acceptance -> Active -> Completed -> Archived
+
+Featured -> Rejected for Cycle -> Future Cycle Evaluation
+
+Featured -> Approved -> Active -> Holdover -> Completed -> Archived
+
+Featured -> Approved -> Awaiting Acceptance -> timeout/escalation visibility -> reassignment or continued follow-up
+
+8. Workflow State and Holdover Logic
+
+State behavior
+
+State
+
+Meaning / behavior
+
+surfaced / featured
+
+Surfaced for weekly management review
+
+approved
+
+Approved for assignment
+
+rejected for cycle
+
+Rejected in current cycle; may reappear later
+
+awaiting acceptance
+
+Assigned but not yet accepted/acknowledged
+
+active
+
+Accepted and in progress
+
+holdover
+
+Still-open item carried into later cycle
+
+paused
+
+Temporarily parked with reason
+
+completed
+
+Approved complete and briefly visible
+
+archived
+
+Useful history state; never reopens
+
+Unresolved featured or active items move into holdover automatically according to the approved cycle behavior.
+
+Holdovers remain visible and active but rank separately from newly surfaced priorities.
+
+Holdover discussion may continue outside the exact weekly meeting without invalidating the weekly cycle.
+
+9. Grouped-Action Logic
+
+Grouped actions should be treated conservatively in V1.
+
+Only use grouped actions when multiple child items truly belong to one business decision case.
+
+Grouped actions require one owner and one action type.
+
+Grouped actions stay inside Action Detail View; no separate grouped-action screen in V1.
+
+Child-level overengineering should be avoided in V1.
+
+Partial child resolution should remain visible.
+
+The grouped action remains open until all child items are resolved or formally removed.
+
+Grouping should not be used merely to hide complexity or to compress unrelated issues into one action.
+
+10. Confidence, Missing-Data, and Suppression Logic
+
+Confidence behavior
+
+Confidence posture
+
+IAM treatment
+
+High Confidence
+
+Normal surfacing and stronger wording allowed
+
+Medium Confidence
+
+Surface with caution where appropriate
+
+Low Confidence
+
+Surface carefully, often with explicit limitation wording
+
+Insufficient Data
+
+Do not present as normal confident logic
+
+Use what is supportable and avoid false precision.
+
+Required-data gaps can block normal confident surfacing.
+
+Preferred-data gaps narrow confidence but do not automatically block the affected issue.
+
+Unsupported normal logic may be suppressed.
+
+Important but weakly supported issues may appear in cautious review/exception posture rather than disappearing entirely.
+
+Confidence affects display strength and wording, not only hidden back-end logic.
+
+11. Visibility and Protected-Note Logic
+
+Role-based visibility is part of IAM product behavior, not an optional side feature.
+
+Management-only notes are a protected visibility class.
+
+Restricted content must not appear in ordinary non-management views.
+
+Restricted content must not appear in ordinary non-management exports.
+
+Access removal ends live access but should preserve appropriate historical records where allowed.
+
+12. Completion and Archive Logic
+
+Completion / archive behavior
+
+Logic area
+
+Required behavior
+
+Completion trigger
+
+Completion is not automatic from 100% or equivalent progress alone
+
+Completed visibility
+
+Completed items remain visible briefly
+
+Archive transition
+
+Completed items then move to archived history
+
+Archive purpose
+
+Archive is useful history, not a dead status bucket
+
+No reopen rule
+
+Completed and archived items never reopen in V1
+
+Later similar issue
+
+Later similar issue becomes a new action with a new ID
+
+Archive/history should preserve at least action ID, title/label, action type, owner, first surfaced date, completed date, and original estimated impact where supportable.
+
+Actual achieved impact should appear only when easily supportable.
+
+13. Execution Boundary
+
+IAM does not become RSE settings write-back logic.
+
+IAM does not become IFM funding-allocation logic.
+
+IAM does not become a PO execution system.
+
+IAM does not become a full enterprise workflow platform in V1.
+
+IAM should preserve validation-stage simplicity while still enforcing its hard workflow rules.
+
+14. Internal Review Summary
+
+Internal review summary
+
+Review area
+
+Result
+
+Notes
+
+Completeness
+
+Pass after rebuild
+
+Now includes core decision principle, expanded decision flow, readiness/support logic, ranking logic, approval/assignment logic, grouped-action logic, archive logic, visibility logic, and execution boundary.
+
+Gaps
+
+Pass with carry-forward
+
+Exact final Keystroke/AIMS source mapping remains separate addendum work.
+
+Errors
+
+Pass
+
+Validation-stage boundary and hard rules preserved.
+
+Recommendations
+
+Included
+
+Use this file as the main developer logic backbone together with file 03, the active build brief, and the active UAT workbook.
+
+Ease of use
+
+Pass
+
+Document now functions as a real logic guide rather than a compressed rule summary.
+
+
+
+15. Playbook Routing and Selection Logic
+
+After a priority or holdover issue is surfaced, IAM should be able to recommend or assign an appropriate Inventory Cash Recovery Action Playbook when trapped-cash/excess inventory is present.
+
+Playbook selection should consider demand credibility, margin preservation value, vendor recovery availability, transfer practicality, item distress level, cash pressure, risk, and RSE correction status.
+
+Before recommending markdown, liquidation, or write-off for overstock inventory, IAM should evaluate Normal Sell-Through / Controlled Runoff.
+
+Playbook routing must remain cause-based and should not blur IAM into RSE, IFM, pricing, or accounting execution logic.
+
+Follow-Up Measurement should be required after any material cash-recovery action.

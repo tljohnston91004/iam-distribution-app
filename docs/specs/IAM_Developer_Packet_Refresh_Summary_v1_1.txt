@@ -1,0 +1,319 @@
+IAM Developer Packet Refresh Summary — v1.1
+
+Internal developer-packet synchronization plan for IAM
+
+1. Purpose
+
+This refresh identifies what must be updated inside the active IAM developer packet so the packet reflects the IAM rules and decisions finalized in chat and reaches a cleaner handoff standard closer to IFM.
+
+This is not a redefinition of IAM. It is a developer-packet synchronization pass.
+
+2. Refresh Objective
+
+Bring the active IAM developer packet into alignment with the approved IAM V1 validation rules.
+
+Reflect IAM as a validation-stage product.
+
+Reflect the approved V1 build boundary, workflow, priority logic, grouped-action logic, missing-data / confidence logic, archive / non-reopen logic, role / visibility / notes protection logic, one-company-per-workspace rule, fixed-weight / limited-UAT V1 rule, and improved data expectation / mapping logic.
+
+3. Front-Door Active Handoff Files
+
+The active front-door IAM Cursor handoff files are now:
+
+IAM Cursor Build Brief v1.3
+
+IAM UAT / Validation Test Workbook v1.1
+
+The refreshed developer packet must align to these files and treat them as the active front-door handoff path.
+
+4. Refresh Operating Rule
+
+This refresh should follow a synchronize, tighten, and clarify approach.
+
+Preserve stable working file structures where possible.
+
+Update content to reflect approved rules.
+
+Do not rewrite stable files unnecessarily.
+
+Do not trigger avoidable rebuild risk when a targeted update is enough.
+
+5. Refresh Scope
+
+This refresh should focus on the active developer-facing IAM files, especially:
+
+Developer Index / Packet Guide
+
+Developer Translation Build Framework
+
+Master Handoff Index and Read Order
+
+Data Input Source Requirements Framework
+
+Field-Level Source-of-Truth Logic Map
+
+Role Permission Matrix
+
+Status and Workflow State Map
+
+Workflow Transition Approval Table
+
+Screen UI Logic Framework
+
+Screen-by-Screen UI Component Breakdown
+
+Excel Build Companion
+
+Final Handoff Review Pass
+
+6. Refresh Priority Tiers
+
+Tier 1 — Must Refresh Now
+
+Developer Index / Packet Guide
+
+Developer Translation Build Framework
+
+Master Handoff Index and Read Order
+
+Data Input Source Requirements Framework
+
+Field-Level Source-of-Truth Logic Map
+
+Role Permission Matrix
+
+Status and Workflow State Map
+
+Workflow Transition Approval Table
+
+Final Handoff Review Pass
+
+Tier 2 — Should Refresh Next
+
+Screen UI Logic Framework
+
+Screen-by-Screen UI Component Breakdown
+
+Excel Build Companion
+
+This tiering is meant to bring IAM up to IFM’s handoff level efficiently without treating every file as equally urgent.
+
+7. Major Refresh Areas
+
+7.1 Validation-stage build boundary
+
+State clearly that IAM is a V1 validation-stage build, not a full enterprise platform, not a highly configurable system, and not a multi-company shared workspace product in V1.
+
+Strengthen one company per workspace/environment, fixed priority weights in V1, minimal functional UI, no overbuilt admin/config layer, no full export-permission customization layer, no separate grouped-action screen, and no IAM write-back settings behavior.
+
+7.2 Product-family boundary
+
+Preserve IAM as the inventory action engine, RSE as the replenishment settings engine, IFM as the inventory funding / capital-discipline engine, and Decision OS as the broader priority framework.
+
+State clearly that IAM does not become RSE, IFM, or a general dashboard/reporting layer without action discipline.
+
+7.3 Priority logic refresh
+
+Reflect that cash impact leads by default.
+
+Reflect that service/operational risk can override only when clearly more dangerous and that the override is high-threshold, not a minor-weight modifier.
+
+Reflect that urgency is not a separate top-level ranking factor and confidence is not a lead ranking factor.
+
+Reflect that new priorities and holdovers rank separately.
+
+Reflect that top 2 are the core weekly surfaced priorities, lower-ranked items do not auto-replace rejected top priorities in the same cycle, management may elevate additional items, and materially important out-of-cycle events may create a 3rd top priority.
+
+7.4 Workflow / state logic refresh
+
+Confirm states: surfaced / featured, approved, rejected for cycle, awaiting acceptance, active, holdover, paused, completed, archived.
+
+Confirm behavior: rejection returns issue to future-cycle evaluation, rejected top priorities do not auto-fill with lower-ranked items, approved items are assigned in same cycle, due/review date is required before leaving featured, unresolved featured items move to holdover automatically, awaiting acceptance supports timeout/escalation visibility, completed items remain visible briefly then archive, completed/archived items never reopen, and similar future issues become new actions with new IDs.
+
+7.5 Grouped-action logic refresh
+
+Reflect grouped actions as conservative.
+
+One business decision case required, one owner, one action type, group-level due/review date, partial child resolution visible, group remains open until all child items are resolved or formally removed.
+
+Grouped actions handled inside Action Detail View, no separate grouped-action screen in V1, avoid child-level overengineering in V1.
+
+7.6 Missing-data / confidence refresh
+
+Reflect use what is supportable, avoid false precision, sufficient / partial / insufficient support logic, required-data-missing can block normal confident surfacing, preferred-data-missing narrows confidence but does not automatically block, unsupported normal logic may be suppressed, important but weakly supported issues may appear in review/exception posture, and weak confidence affects display strength.
+
+7.7 Archive / history refresh
+
+Reflect completed and archived as separate states.
+
+Completed visible once as completed, then archive.
+
+Archive is useful history, not a dead status bucket.
+
+Preserve at least action ID, title/label, action type, owner, first surfaced date, completed date, original estimated impact where available, and actual achieved impact only when easily supportable.
+
+No reopen rule remains absolute in V1.
+
+7.8 Security / visibility refresh
+
+Reflect role-based visibility as required.
+
+Management-only notes are a protected visibility class.
+
+Restricted content must not appear in ordinary non-management views.
+
+Export behavior should follow visibility rules as a practical minimum.
+
+Access removal ends live access but preserves history.
+
+7.9 Data expectation refresh
+
+Reflect the stronger IAM data logic and mapping structure already built.
+
+Minimum strong validation stack: item/SKU ID, description, on-hand quantity, units sold / sales history, gross sales dollars, cost, classification, first purchase date, last receipt date, last receipt quantity, open orders / incoming supply, expected receipt dates, item status / protected logic, vendor / brand / supplier, user / role list.
+
+Stronger enhancement stack: allocated / committed quantity, available quantity, inventory value, department / category / subcategory, item creation / activation date, receipt count / quantity in lookback, backorder quantity, returns / negative movement, pack size / MOQ / case quantity, node/location detail, node role / type, transfer indicators/history.
+
+7.10 UAT / validation alignment refresh
+
+Point directly to the approved UAT workbook logic.
+
+Align to these UAT buckets: new priority surfacing, approval / rejection / assignment, holdover movement, completion / archive behavior, grouped-action behavior, missing-data / low-confidence behavior, role / visibility behavior.
+
+8. Refresh by File
+
+8.1 Developer Index / Packet Guide
+
+Refresh type: Control refresh + front-door handoff refresh
+
+Update to reflect IAM as validation-stage.
+
+Add latest active build brief.
+
+Add latest active UAT workbook.
+
+Show current active source-mapping status.
+
+Show reading order for Cursor.
+
+8.2 Developer Translation Build Framework
+
+Refresh type: Logic refresh
+
+Update to reflect final V1 build boundary, priority logic refinements, grouped-action refinements, missing-data refinements, archive and visibility refinements.
+
+8.3 Master Handoff Index and Read Order
+
+Refresh type: Control refresh
+
+Update to reflect current active file list, build brief as front-door file, UAT workbook as required validation file, and Keystroke / AIMS mapping as a separate addendum.
+
+8.4 Data Input Source Requirements Framework
+
+Refresh type: Data refresh
+
+Update to reflect stronger minimum validation stack, enhancement stack, confidence / suppression behavior, and supportable-data philosophy.
+
+8.5 Field-Level Source-of-Truth Logic Map
+
+Refresh type: State/field refresh
+
+Update to reflect current strongest field assumptions, required vs preferred distinction, stronger inventory-age and confidence-related fields, and source-mapping note for unfinished Keystroke/AIMS work.
+
+8.6 Role Permission Matrix
+
+Refresh type: Visibility/control refresh
+
+Update to reflect management-only notes protection, export visibility rule, archive/history visibility, and access-removal history retention.
+
+8.7 Status and Workflow State Map
+
+Refresh type: State refresh
+
+Update to reflect rejection-cycle behavior, awaiting-acceptance logic, holdover movement, completed vs archived distinction, and never-reopen rule.
+
+8.8 Workflow Transition Approval Table
+
+Refresh type: State/control refresh
+
+Update to reflect management approval touchpoints, required due/review date, archive trigger logic, and no reopen rule.
+
+8.9 Screen UI Logic Framework
+
+Refresh type: UI-boundary refresh
+
+Update to reflect minimal V1 functional UI, grouped-action-inside-detail-view rule, management-priority visibility, role-based visibility and notes protection, and archive/history expectations.
+
+8.10 Screen-by-Screen UI Component Breakdown
+
+Refresh type: UI-boundary refresh
+
+Update to reflect only the four required screens, no separate grouped-action screen, management dashboard emphasis, and archive screen as useful history.
+
+8.11 Excel Build Companion
+
+Refresh type: Logic/data refresh
+
+Update to reflect final workflow logic, ranking logic, grouped-action rules, low-confidence logic, and enhanced data logic.
+
+8.12 Final Handoff Review Pass
+
+Refresh type: Control/review refresh
+
+Refresh to confirm packet reflects latest approved rules, active versions are identified, UAT workbook and build brief are included, and remaining known gap is mainly Keystroke / AIMS final source mapping rather than product-definition weakness.
+
+9. Internal Review Rule for Refresh Work
+
+Because this is a packet-refresh effort, updated files should go through internal review before final package lock.
+
+Review refreshed files for completeness.
+
+Review refreshed files for gaps or conflicting logic.
+
+Apply corrections before calling the refreshed packet final.
+
+10. Remaining Known Gap After Refresh
+
+Even after this refresh, one major known item will still remain:
+
+Keystroke / AIMS final source mapping
+
+This remains important.
+
+This remains separate.
+
+It is not a reason to stall the core validation build entirely.
+
+It is still a real source-truth task to finish.
+
+11. Refresh Success Standard
+
+Active developer files reflect current IAM rules.
+
+Build brief and UAT workbook are included in the active handoff path.
+
+Old conflicting logic is removed or clearly superseded.
+
+Package can be given to Cursor without major logic ambiguity.
+
+Remaining known gap is mainly source mapping, not core product-definition weakness.
+
+12. Refresh Outcome Target
+
+Build brief active.
+
+UAT workbook active.
+
+Developer packet synchronized to current rules.
+
+Package ready for Cursor-controlled V1 validation build.
+
+Remaining gaps mostly limited to final source mapping, not product logic.
+
+13. Recommendation
+
+This revised draft is strong enough to use as the working refresh plan.
+
+Build the actual IAM Developer Packet Refresh Summary file from this revised draft.
+
+Then use it to update the actual developer packet files in tier order.

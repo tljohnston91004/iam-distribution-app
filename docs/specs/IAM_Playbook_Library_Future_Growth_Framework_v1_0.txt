@@ -1,0 +1,293 @@
+IAM Playbook Library Future-Growth Framework
+
+Control framework for future IAM playbook-library expansion
+
+Status: Active working control framework for future IAM playbook-library expansion
+
+1. Purpose
+
+This framework defines how the IAM playbook library should grow over time so it stays useful, controlled, and development-friendly.
+
+Its purpose is to prevent the library from becoming random, repetitive, overly broad, hard to implement, hard to maintain, or unclear for Cursor/development.
+
+2. Core Growth Rule
+
+A new IAM playbook should be added only when it addresses a repeated trapped-cash / excess-inventory action pattern.
+
+A new IAM playbook should be added only when it solves a real gap not already covered by an existing playbook.
+
+A new IAM playbook should be added only when it creates a materially different decision path.
+
+A new IAM playbook should be added only when it improves measurable follow-through.
+
+A new IAM playbook should be added only when it is needed for a recurring real-world recovery case.
+
+A new IAM playbook should be added only when it improves root-cause prevention or follow-up verification in a way not already covered.
+
+If a proposed new playbook does not meet at least one of these standards, it should not be added as a separate playbook.
+
+3. Library Organization Rule
+
+The IAM playbook library should continue to stay organized under these three categories:
+
+A. Recovery Actions
+
+Actions that recover current trapped cash from existing inventory.
+
+B. Root-Cause / Prevention Actions
+
+Actions that reduce recurrence risk.
+
+C. Measurement / Validation Actions
+
+Actions that verify whether the selected action worked.
+
+New playbooks should be added into one of these categories rather than creating uncontrolled new categories unless there is a strong reason.
+
+4. Governance Status Types
+
+A. Active Playbooks
+
+Playbooks approved for current IAM use and eligible for Cursor/development implementation.
+
+B. Candidate Future Playbooks
+
+Playbooks under consideration that are not active and should not be treated as part of the live IAM library unless explicitly promoted.
+
+C. Rejected / Archived Playbook Ideas
+
+Playbook ideas that were reviewed but not promoted. These may be preserved for reference, but they should not be treated as active or pending unless reopened intentionally.
+
+5. Anti-Redundancy Rule
+
+A new playbook should not be added if it is only a renamed version of an existing playbook.
+
+A new playbook should not be added if it is only a minor variation of an existing playbook.
+
+A new playbook should not be added if it is only a sub-step that belongs inside an existing playbook.
+
+A new playbook should not be added if it is only an execution detail that should live inside workflow instructions rather than as a separate playbook.
+
+Before adding a new playbook, IAM should ask:
+
+“Is this truly a different decision path, or is it just a variation of an existing one?”
+
+If it is only a variation, it should usually stay inside the existing playbook.
+
+6. Materially Different Decision Path Rule
+
+A proposed new playbook should usually be considered materially different only if it changes at least one important part of the action path, such as:
+
+the main recovery mechanism
+
+the economic logic
+
+the primary owner
+
+the timing / review logic
+
+the escalation path
+
+the success-measurement logic
+
+the root-cause / prevention logic
+
+If none of those materially change, the proposal is probably a variation of an existing playbook rather than a true new playbook.
+
+7. Candidate Future Playbooks Rule
+
+Do not place new ideas directly into the active playbook set first.
+
+Instead, place them first in a holding section called:
+
+Candidate Future Playbooks
+
+This creates a controlled review step before expansion.
+
+8. Promotion Rule
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it has a clear use case.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it is not redundant.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it has distinct triggers.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it has a distinct decision boundary.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it has measurable outcomes.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it passes internal review.
+
+A candidate playbook should move from Candidate Future Playbooks into the active library only when it is judged strong enough for Cursor/development use.
+
+9. Required Standard Format for New Playbooks
+
+Any future playbook added to the IAM library should use the same standard structure as the current library:
+
+When to Use
+
+Primary Goal
+
+Typical Triggers
+
+Required Evidence
+
+Recommended Actions
+
+Primary Owner
+
+Secondary Owner / Support Role
+
+Timing / Review Window
+
+Success Measures
+
+Stop / Escalation Rules
+
+Decision Boundary
+
+Related Module Support
+
+Follow-Up Measurement
+
+Standard Outcome Labels
+
+A proposed playbook should not become active unless it can be written in this structure cleanly.
+
+10. Recommended Future Candidate Playbooks
+
+These are illustrative examples only.
+
+They are not approved.
+
+They are not part of the active library.
+
+They are not implied priorities.
+
+They are not development requirements unless later promoted.
+
+Illustrative candidate examples:
+
+Seasonal Inventory Exit Playbook
+
+Customer Program Recovery Playbook
+
+Substitution / Conversion Playbook
+
+Dead Inventory Executive Escalation Playbook
+
+Special Vendor Negotiated Recovery Playbook
+
+Channel-Specific Recovery Playbook
+
+Assortment Rationalization Support Playbook
+
+11. Playbook Selection Matrix Recommendation
+
+A future enhancement that could strengthen the library is a Playbook Selection Matrix.
+
+This matrix could include:
+
+issue type
+
+demand status
+
+cash pressure
+
+margin preservation priority
+
+item risk
+
+likely first playbook
+
+likely escalation path
+
+This is not required now, but it is a strong future enhancement if the library expands.
+
+12. Growth Control Rule for Cursor/Development
+
+If the library is handed to Cursor/development, the developer should treat the current active library as the controlled set.
+
+Do not invent extra playbooks automatically.
+
+Do not split existing playbooks into many smaller playbooks without approval.
+
+Do not merge distinct playbooks together without approval.
+
+Treat Candidate Future Playbooks as non-active unless explicitly promoted.
+
+13. Do Not Overbuild Rule
+
+Future playbook growth should not create unnecessary system complexity unless there is a meaningful business/use-case benefit.
+
+Do not add playbooks just because they sound useful in theory.
+
+Do not add playbooks that create more implementation burden than business value.
+
+Do not increase Cursor/development complexity without a real recurring business reason.
+
+14. Package Update Rule
+
+When a new playbook is promoted into the active library, the following should be reviewed for update:
+
+playbook library document
+
+package master index if needed
+
+build instruction brief if behavior changes
+
+decision logic guide if routing logic changes
+
+workflow specification if UI/workflow changes
+
+output/export specification if outputs change
+
+sample test/expected-results document if validation scenarios change
+
+acceptance checklist if acceptance criteria change
+
+15. Internal Review Rule
+
+No future playbook should be promoted into the active library without internal review.
+
+No future playbook should be promoted into the active library without corrections.
+
+No future playbook should be promoted into the active library without rerun internal review.
+
+No future playbook should be promoted into the active library without explicit approval for active use.
+
+16. Recommendation
+
+This framework should be treated as the control rule for future IAM playbook-library growth.
+
+The current active library remains controlled.
+
+Future expansion remains possible.
+
+Growth happens by review and promotion, not random accumulation.
+
+17. Internal Review Summary
+
+Completeness
+
+Pass after revision. The framework now includes stronger governance definitions, clearer promotion discipline, anti-redundancy rules, materially-different-path logic, candidate handling, and package update rules.
+
+Gaps
+
+Pass with carry-forward. A future playbook selection matrix may still be useful later, but it is not required for current control use.
+
+Errors
+
+Pass. The framework remains aligned with IAM boundaries and does not create uncontrolled expansion.
+
+Recommendations
+
+Included. Use this as the formal control framework for future IAM playbook-library expansion.
+
+Ease of Use
+
+Pass. The framework now reads more like a real governance/control document and less like a conceptual note.
+
+18. Conclusion
+
+This framework is strong enough to serve as the active control rule for future IAM playbook-library growth.

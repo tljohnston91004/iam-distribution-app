@@ -1,0 +1,145 @@
+Document 9 - IAM Inventory Cash Recovery Action Playbook Library
+
+Full detailed consolidated version
+
+Status: Active working development draft approved for IAM package integration and Cursor/development reference.
+
+1. Purpose
+
+This library defines the Inventory Cash Recovery Action Playbooks for IAM. Its purpose is to give IAM a structured action path when inventory is old, excess, weak-moving, commercially stale, obsolete, or trapping cash.
+
+2. Role Inside IAM
+
+IAM should use this library when an inventory issue needs a defined action path, explicit ownership, timing, follow-up, and measurement.
+
+IAM should own surfacing, prioritizing, playbook recommendation/selection, owner assignment, timing, follow-up, and measurement.
+
+IAM should not become RSE, IFM, a pricing engine, a liquidation platform, a vendor portal, or an accounting write-off system.
+
+3. Library Structure
+
+Recovery Actions
+
+Stop Replenishment
+
+Vendor Return / Credit
+
+Markdown / Discount
+
+Bundle / Pair with Active Products
+
+Sales / Account Targeting
+
+Transfer / Reallocate
+
+Normal Sell-Through / Controlled Runoff
+
+Liquidate / Exit
+
+Write-Off / Scrap Approval
+
+Root-Cause / Prevention Actions
+
+Replenishment Setting Correction through RSE
+
+Measurement / Validation Actions
+
+Follow-Up Measurement
+
+4. Standard Outcome Labels
+
+Successful
+
+Partially Successful
+
+Unsuccessful
+
+Escalated
+
+Converted to Different Playbook
+
+Monitoring Continues
+
+5. Controlled Runoff Evaluation Rule
+
+Before recommending markdown, liquidation, or write-off for overstock inventory, IAM should evaluate whether Normal Sell-Through / Controlled Runoff is acceptable.
+
+Use decision-guidance windows rather than false-precision forecasting guarantees.
+
+Outcome labels: Yes — Normal Sell-Through Acceptable; Yes, but Review Closely; No — Escalate to Active Cash Recovery.
+
+6. Key IAM Interpretation Rule
+
+Overstock is not automatically distressed inventory. Some excess inventory should be removed from replenishment pressure, allowed to sell through normally, monitored through a defined runoff window, and escalated only if runoff is too slow or risk worsens.
+
+7. Core Playbook Set
+
+Stop Replenishment
+
+Stop additional cash from flowing into inventory that is already showing weak demand or excess position.
+
+Vendor Return / Credit
+
+Recover cash or reduce exposure through vendor authorization, credit, swap, or rotation.
+
+Markdown / Discount
+
+Accelerate sell-through while intentionally managing margin tradeoff.
+
+Bundle / Pair with Active Products
+
+Move weak inventory by pairing it with active-demand items.
+
+Sales / Account Targeting
+
+Direct focused sales effort toward the accounts or channels most likely to convert trapped inventory.
+
+Transfer / Reallocate
+
+Move inventory from the wrong location/channel to a stronger one.
+
+Normal Sell-Through / Controlled Runoff
+
+Allow overstock with credible demand to sell down normally within a defined acceptable window while preserving margin.
+
+Liquidate / Exit
+
+Intentionally exit remaining inventory when continued carry is no longer justified.
+
+Write-Off / Scrap Approval
+
+Formally clear inventory with little practical recovery value.
+
+Replenishment Setting Correction through RSE
+
+Fix root-cause replenishment behavior so the same problem is less likely to repeat.
+
+Follow-Up Measurement
+
+Verify whether the selected action actually reduced inventory, released cash, and solved or reduced the issue.
+
+8. Package Integration Targets
+
+01 Package Index / Checklist
+
+02 Build Instruction Brief
+
+04 Calculation / Decision Logic Guide
+
+05 Screen / Workflow Specification
+
+06 Output / Export Specification
+
+07 Sample Test Data / Expected Results
+
+08 Developer Acceptance Checklist
+
+9. Internal Review Summary
+
+Strategic value: High
+
+IAM fit: High
+
+Development readiness: Strong enough to reference in Cursor/development
+
+Recommended use: Treat as the formal IAM playbook-library working document and update the IAM package to reference it

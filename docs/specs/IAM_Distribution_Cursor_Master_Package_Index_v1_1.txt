@@ -1,0 +1,267 @@
+IAM Distribution Cursor Master Package Index
+
+Front-door master index and cover sheet for the IAM Cursor/development package
+
+Status: Active working master index / cover sheet
+
+1. Purpose
+
+This document serves as the front-door master index for the IAM Cursor/development package.
+
+Its job is to show the active package release version, the active control files, the active package files, each file’s current version, the reading/load order, the purpose of each file, the current known carry-forward item, and the package-control rule.
+
+2. Package Header
+
+Package Name: IAM Distribution Cursor Development Package
+
+Package Release Version: v1.0
+
+Status: Active Cursor / Development Handoff Package
+
+Primary Use: Cursor and developer handoff for IAM V1 validation-stage build
+
+3. Active Control Files
+
+IAM Cursor Build Brief v1.3
+
+IAM UAT / Validation Test Workbook v1.1
+
+IAM Package-Wide Versioning Standard v1.0
+
+4. Active Package Files
+
+00 IAM Package Index and Cursor Load Guide — v1.1
+
+01 IAM Cursor Build Package Index / Checklist — v1.2
+
+02 IAM Cursor Build Instruction Brief — v1.2
+
+03 IAM Data Model / Field Mapping Guide — v1.1
+
+04 IAM Calculation / Decision Logic Guide — v1.2
+
+05 IAM Screen / Workflow Specification — v1.2
+
+06 IAM Output / Export Specification — v1.2
+
+07 IAM Sample Test Data / Expected Results — v1.2
+
+08 IAM Developer Acceptance Checklist — v1.2
+
+09 IAM Inventory Cash Recovery Action Playbook Library — v1.2
+
+5. Recommended Cursor Reading / Load Order
+
+Stage 1 — Foundation
+
+Master Package Index
+
+00 Package Guide
+
+01 Package Checklist
+
+02 Build Instruction Brief
+
+IAM Cursor Build Brief
+
+Stage 2 — Data and Logic
+
+03 Data Model / Field Mapping Guide
+
+04 Calculation / Decision Logic Guide
+
+Stage 3 — Workflow, Output, and Playbook Use
+
+05 Screen / Workflow Specification
+
+06 Output / Export Specification
+
+09 Inventory Cash Recovery Action Playbook Library
+
+Stage 4 — Testing and Acceptance
+
+07 Sample Test Data / Expected Results
+
+08 Developer Acceptance Checklist
+
+IAM UAT / Validation Test Workbook
+
+6. Purpose Table
+
+File
+
+Version
+
+Purpose
+
+Required for Cursor
+
+Stage
+
+Master Package Index
+
+v1.0
+
+Front-door package control and reading order
+
+Yes
+
+1
+
+00
+
+v1.1
+
+Package guide and staged load control
+
+Yes
+
+1
+
+01
+
+v1.2
+
+Package map, checklist, scope, build control
+
+Yes
+
+1
+
+02
+
+v1.2
+
+Plain-English build instruction brief
+
+Yes
+
+1
+
+03
+
+v1.1
+
+Data backbone and mapping logic
+
+Yes
+
+2
+
+04
+
+v1.2
+
+Decision/ranking/workflow logic backbone
+
+Yes
+
+2
+
+05
+
+v1.2
+
+Workflow/UI backbone
+
+Yes
+
+3
+
+06
+
+v1.2
+
+Output/export backbone
+
+Yes
+
+3
+
+07
+
+v1.2
+
+Scenario and expected-results backbone
+
+Yes
+
+4
+
+08
+
+v1.2
+
+Acceptance/readiness backbone
+
+Yes
+
+4
+
+09
+
+v1.2
+
+Cash-recovery playbook library
+
+Yes
+
+3
+
+Build Brief
+
+v1.3
+
+Active detailed control brief
+
+Yes
+
+1
+
+UAT Workbook
+
+v1.1
+
+Formal pass/fail control workbook
+
+Yes
+
+4
+
+Versioning Standard
+
+v1.0
+
+Package-wide version rule
+
+Reference
+
+1
+
+7. Current Known Carry-Forward Item
+
+Final Keystroke / AIMS source mapping remains a separate addendum item and should not block the core IAM validation-stage build.
+
+8. Package-Control Rule
+
+This master index controls the active IAM handoff set.
+
+Only documents listed here should be treated as the active package.
+
+If a document is replaced, added, removed, or version-changed, this master index should be updated.
+
+Package release version and document versions should be shown separately.
+
+9. Recommendation
+
+This document should become the new front-door file for the IAM package.
+
+
+
+10. Cross-Module Integration Addendum
+
+Add Document 10 - IAM-RSE-IFM Signal / Data Exchange Map to the active IAM package set.
+
+Purpose: define how IAM should consume RSE root-cause signals and IFM funding/cash-pressure signals while remaining a separate action engine.
+
+Recommended Cursor placement: load after the Master Package Index and Build Brief, then use as a cross-module reference during IAM development.
