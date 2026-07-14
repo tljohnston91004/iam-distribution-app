@@ -52,6 +52,7 @@ export function scoreFixture(
     units: number;
     sales: number;
     backorder?: number;
+    vendor?: string;
     confidence: "Medium Confidence" | "Low Confidence" | "Insufficient Support";
   },
   rse: RseSignalFlags = {},
@@ -64,6 +65,7 @@ export function scoreFixture(
       cost: f.cost,
       inventoryValue: f.qoh * f.cost,
       dataConfidence: f.confidence,
+      vendorName: f.vendor,
     },
     { unitsSold: f.units, grossSalesDollars: f.sales, dataConfidence: f.confidence },
     f.backorder != null ? { backorderQuantity: f.backorder } : undefined

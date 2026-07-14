@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/db";
 import { FEATURED_PRIORITY_COUNT } from "@/lib/iam/constants";
-import { rankNewPriorityCandidates, identifyCandidatesForSku, buildSkuEvidence } from "./ranking";
-import type { IfmSignalFlags, RseSignalFlags } from "../types";
+import {
+  buildSkuEvidence,
+  groupCandidatesIntoWorkPackages,
+  identifyCandidatesForSku,
+  rankWorkPackages,
+} from "./ranking";
+import type { IfmSignalFlags, RseSignalFlags, WorkPackage } from "../types";
 
 function parseSignalPayload(json: string | null | undefined): Record<string, unknown> {
   if (!json) return {};
@@ -35,6 +40,11 @@ function ifmFlagsFromSignals(signals: { signalType: string; payloadJson: string 
     if (typeof p.severity === "number") flags.inventoryCapitalSeverity = p.severity;
   }
   return flags;
+}
+
+function strengthFromPackage(pkg: WorkPackage): string {
+  const raw = pkg.detail.actionStrength;
+  return typeof raw === "string" ? raw : "Monitor";
 }
 
 export async function runIamCalculatePipeline(iamRunId: string) {
@@ -104,8 +114,9 @@ export async function runIamCalculatePipeline(iamRunId: string) {
     allScored.push(...identifyCandidatesForSku(evidence, rse, ifm));
   }
 
-  const ranked = rankNewPriorityCandidates(allScored);
-  const topFeatured = ranked.slice(0, FEATURED_PRIORITY_COUNT);
+  const packages = rankWorkPackages(groupCandidatesIntoWorkPackages(allScored));
+  const topFeatured = packages.slice(0, FEATURED_PRIORITY_COUNT);
+  const skuCandidateCount = allScored.filter((c) => !c.suppressedFlag).length;
 
   await prisma.$transaction(async (tx) => {
     await tx.actionCandidate.deleteMany({ where: { iamRunId } });
@@ -117,70 +128,72 @@ export async function runIamCalculatePipeline(iamRunId: string) {
       },
     });
 
-    const candidateRecords = await Promise.all(
-      ranked.map((c, i) =>
-        tx.actionCandidate.create({
-          data: {
-            iamRunId,
-            skuOrItemId: c.skuOrItemId,
-            sourceType: c.sourceType,
-            actionType: c.actionType,
-            candidateTitle: c.candidateTitle,
-            evidenceStrength: c.evidenceStrength,
-            estimatedCashImpact: c.estimatedCashImpact,
-            serviceOperationalRisk: c.serviceOperationalRisk,
-            serviceRiskScore: c.serviceRiskScore,
-            cashImpactScore: c.cashImpactScore,
-            priorityScore: c.priorityScore,
-            priorityCategory: c.priorityCategory,
-            readinessLabel: c.readinessLabel,
-            confidenceLevel: c.confidenceLevel,
-            suppressedFlag: c.suppressedFlag,
-            rankedPosition: i + 1,
-            detailJson: JSON.stringify(c.detail),
-          },
-        })
-      )
-    );
+    for (let i = 0; i < packages.length; i++) {
+      const pkg = packages[i]!;
+      const isFeatured = i < FEATURED_PRIORITY_COUNT && !pkg.suppressedFlag;
+      const slot = isFeatured ? i + 1 : null;
+      const isGrouped = pkg.childSkuIds.length > 1;
 
-    const featuredIds = new Set(
-      topFeatured.map((t) => `${t.skuOrItemId}:${t.actionType}`)
-    );
-
-    for (const rec of candidateRecords) {
-      const key = `${rec.skuOrItemId}:${rec.actionType}`;
-      const isFeatured = featuredIds.has(key) && !rec.suppressedFlag;
-      const slot = isFeatured
-        ? topFeatured.findIndex((t) => `${t.skuOrItemId}:${t.actionType}` === key) + 1
-        : null;
-
-      if (!isFeatured && rec.suppressedFlag) continue;
-
-      await tx.action.create({
+      const candidate = await tx.actionCandidate.create({
         data: {
           iamRunId,
-          actionCandidateId: rec.id,
-          skuOrItemId: rec.skuOrItemId,
-          actionTitle: rec.candidateTitle,
-          actionType: rec.actionType,
-          actionStrength: JSON.parse(rec.detailJson ?? "{}").actionStrength ?? "Monitor",
-          priorityScore: rec.priorityScore,
+          skuOrItemId: pkg.leadSkuOrItemId,
+          sourceType: pkg.sourceType,
+          actionType: pkg.actionType,
+          candidateTitle: pkg.packageTitle,
+          evidenceStrength: pkg.evidenceStrength,
+          estimatedCashImpact: pkg.estimatedCashImpact,
+          serviceOperationalRisk: pkg.serviceOperationalRisk,
+          serviceRiskScore: pkg.serviceRiskScore,
+          cashImpactScore: pkg.cashImpactScore,
+          priorityScore: pkg.priorityScore,
+          priorityCategory: pkg.priorityCategory,
+          readinessLabel: pkg.readinessLabel,
+          confidenceLevel: pkg.confidenceLevel,
+          suppressedFlag: pkg.suppressedFlag,
+          rankedPosition: i + 1,
+          detailJson: JSON.stringify(pkg.detail),
+        },
+      });
+
+      if (pkg.suppressedFlag) continue;
+
+      const action = await tx.action.create({
+        data: {
+          iamRunId,
+          actionCandidateId: candidate.id,
+          skuOrItemId: pkg.leadSkuOrItemId,
+          actionTitle: pkg.packageTitle,
+          actionType: pkg.actionType,
+          actionStrength: strengthFromPackage(pkg),
+          priorityScore: pkg.priorityScore,
           priorityCategory: "new_priority",
           workflowState: isFeatured ? "Featured" : "Candidate",
           featuredSlot: slot,
           firstSurfacedDate: isFeatured ? new Date() : null,
-          confidenceLevel: rec.confidenceLevel,
-          originalEstimatedImpact: rec.estimatedCashImpact ?? undefined,
+          confidenceLevel: pkg.confidenceLevel,
+          originalEstimatedImpact: pkg.estimatedCashImpact,
           visibilityClass: "Management Visible",
-          detailJson: rec.detailJson,
+          groupedActionFlag: isGrouped,
+          detailJson: JSON.stringify(pkg.detail),
         },
       });
+
+      if (isGrouped) {
+        await tx.groupedActionItem.createMany({
+          data: pkg.childSkuIds.map((sku) => ({
+            actionId: action.id,
+            childReferenceId: sku,
+            childStatus: "open",
+          })),
+        });
+      }
     }
 
     const hasInventory = run.inventorySnapshots.length > 0;
     const hasDemand = run.demandHistory.length > 0;
     let readiness = "Not Ready";
-    if (hasInventory && hasDemand) readiness = ranked.length ? "Ready" : "Partial";
+    if (hasInventory && hasDemand) readiness = packages.length ? "Ready" : "Partial";
     else if (hasInventory || hasDemand) readiness = "Partial";
 
     await tx.iamRun.update({
@@ -194,14 +207,16 @@ export async function runIamCalculatePipeline(iamRunId: string) {
         entityType: "IamRun",
         entityId: iamRunId,
         action: "calculated",
-        detail: `${ranked.length} candidates, ${topFeatured.length} featured`,
+        detail: `${packages.length} work packages from ${skuCandidateCount} SKU candidates; ${topFeatured.length} featured`,
       },
     });
   });
 
   return {
-    candidateCount: ranked.length,
+    candidateCount: packages.length,
+    skuCandidateCount,
     featuredCount: topFeatured.length,
     holdoverCount: run.actions.length,
+    childSkuCount: packages.reduce((sum, p) => sum + p.childSkuIds.length, 0),
   };
 }

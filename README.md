@@ -9,7 +9,7 @@ This app is a **sibling** to the RSE and IFM distribution apps and mirrors their
 |--------|------|
 | **RSE** | Replenishment settings — identifies what inventory may need buying |
 | **IFM** | Funding priority — decides which purchases can be funded now |
-| **IAM** | Action priority — decides what inventory action to execute first |
+| **IAM** | Action priority — ranks work packages (not lone SKUs) and drives the weekly action workflow |
 
 ## Stack
 

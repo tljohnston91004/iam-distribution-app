@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usd } from "@/lib/format";
+import { EXECUTION_QUEUE_VISIBLE_COUNT } from "@/lib/iam/constants";
 import type { RunBanner } from "@/lib/iam/banners";
 
 type ActionRow = {
@@ -19,6 +20,8 @@ type ActionRow = {
   ownerName: string | null;
   confidenceLevel: string;
   originalEstimatedImpact: number | null;
+  groupedActionFlag?: boolean;
+  childCount?: number;
 };
 
 type RunData = {
@@ -78,7 +81,18 @@ export function RunWorkspace({
     .filter((a) => a.featuredSlot != null && a.featuredSlot <= 2)
     .sort((a, b) => (a.featuredSlot ?? 99) - (b.featuredSlot ?? 99));
   const holdoverItems = holdovers.length ? holdovers : run.actions.filter((a) => a.workflowState === "Holdover");
-  const candidates = run.actions.filter((a) => a.workflowState === "Candidate");
+  const candidates = run.actions
+    .filter((a) => a.workflowState === "Candidate")
+    .sort((a, b) => b.priorityScore - a.priorityScore);
+  const executionQueue = candidates.slice(0, EXECUTION_QUEUE_VISIBLE_COUNT);
+  const featuredSkuCoverage = featured.reduce((sum, a) => sum + Math.max(a.childCount ?? 1, 1), 0);
+  const queueSkuCoverage = executionQueue.reduce((sum, a) => sum + Math.max(a.childCount ?? 1, 1), 0);
+
+  function packageMeta(item: ActionRow): string {
+    const n = item.childCount ?? (item.groupedActionFlag ? 0 : 1);
+    if (item.groupedActionFlag || n > 1) return `${n} SKUs in package`;
+    return "Single-SKU package";
+  }
 
   async function upload(file: File) {
     setBusy(true);
@@ -107,7 +121,10 @@ export function RunWorkspace({
       setMsg(data.error ?? "Calculate failed");
       return;
     }
-    setMsg(`${data.featuredCount} featured of ${data.candidateCount} candidates`);
+    setMsg(
+      `${data.featuredCount} featured work packages of ${data.candidateCount}` +
+        (data.skuCandidateCount != null ? ` (${data.skuCandidateCount} SKU candidates)` : "")
+    );
     router.refresh();
   }
 
@@ -130,10 +147,10 @@ export function RunWorkspace({
       setCounts({
         inventorySnapshots: data.inventoryCount ?? data.loaded ?? 0,
         demandHistory: data.demandCount ?? data.loaded ?? 0,
-        incomingSupply: data.supplyCount ?? 1,
+        incomingSupply: data.supplyCount ?? 2,
       });
       setMsg(
-        `Loaded ${data.loaded ?? 4} sample SKUs (${data.inventoryCount ?? 4} inventory, ${data.demandCount ?? 4} demand)`
+        `Loaded ${data.loaded ?? 0} sample SKUs (${data.inventoryCount ?? 0} inventory, ${data.demandCount ?? 0} demand) — Calculate to form work packages`
       );
       router.refresh();
     } catch (err) {
@@ -347,15 +364,21 @@ export function RunWorkspace({
             padding: "14px 18px",
           }}
         >
-          <strong>{featured.length} featured priorit{featured.length === 1 ? "y" : "ies"} ready for review</strong>
+          <strong>
+            {featured.length} featured work package{featured.length === 1 ? "" : "s"} covering ~{featuredSkuCoverage}{" "}
+            SKU{featuredSkuCoverage === 1 ? "" : "s"}
+          </strong>
           <p style={{ color: "var(--muted)", fontSize: 13, margin: "6px 0 0" }}>
-            Scroll down or use <strong>Open & review</strong> on each card below.
+            Review the management-focus packages below, or release more from the execution queue.
           </p>
         </section>
       )}
 
       <section style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: 18 }}>Featured priorities (top 2)</h2>
+        <h2 style={{ fontSize: 18 }}>Featured work packages (top 2)</h2>
+        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
+          Management focus — each package can contain many SKUs sharing one action type and vendor/business case.
+        </p>
         {featured.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: 13 }}>Upload data, then Calculate & rank.</p>
         ) : (
@@ -377,8 +400,8 @@ export function RunWorkspace({
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>{item.workflowState}</span>
                 </div>
                 <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
-                  {item.actionStrength} · {item.actionType} · Score {item.priorityScore.toFixed(1)} ·{" "}
-                  {usd(item.originalEstimatedImpact)} · {item.confidenceLevel}
+                  {packageMeta(item)} · {item.actionStrength} · {item.actionType} · Score{" "}
+                  {item.priorityScore.toFixed(1)} · {usd(item.originalEstimatedImpact)} · {item.confidenceLevel}
                 </div>
                 <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <Link
@@ -394,7 +417,7 @@ export function RunWorkspace({
                     Open & review
                   </Link>
                   <button type="button" style={btn} disabled={busy} onClick={() => transition(item.id, "Approved")}>
-                    Approve
+                    Approve package
                   </button>
                   <button
                     type="button"
@@ -411,22 +434,73 @@ export function RunWorkspace({
         )}
       </section>
 
-      <section style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 18 }}>Holdovers ({holdoverItems.length})</h2>
-          <p style={{ color: "var(--muted)", fontSize: 13 }}>Ranked separately from new priorities</p>
-          {holdoverItems.slice(0, 5).map((h) => (
-            <div key={h.id} style={{ fontSize: 13, marginTop: 8 }}>
-              <Link href={`/runs/${run.id}/actions/${h.id}`} style={{ color: "var(--accent)" }}>
-                {h.actionTitle}
-              </Link>
-            </div>
-          ))}
-        </div>
-        <div>
-          <h2 style={{ fontSize: 18 }}>Lower queue ({candidates.length})</h2>
-          <p style={{ color: "var(--muted)", fontSize: 13 }}>Does not auto-backfill rejected featured slots</p>
-        </div>
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ fontSize: 18 }}>
+          Execution queue ({candidates.length} packages · ~{queueSkuCoverage} SKUs shown)
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
+          Ranked packages ready to release to owners without using a featured slot. Rejected featured packages do not
+          auto-backfill.
+        </p>
+        {executionQueue.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>No additional packages in queue.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+            {executionQueue.map((item, idx) => (
+              <div
+                key={item.id}
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  padding: "12px 14px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    Q{idx + 1}. {item.actionTitle}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 3 }}>
+                    {packageMeta(item)} · Score {item.priorityScore.toFixed(1)} · {usd(item.originalEstimatedImpact)}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Link
+                    href={`/runs/${run.id}/actions/${item.id}`}
+                    style={{ ...btn, textDecoration: "none", display: "inline-block" }}
+                  >
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    style={primaryBtn}
+                    disabled={busy}
+                    onClick={() => transition(item.id, "Approved")}
+                  >
+                    Release to execution
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ fontSize: 18 }}>Holdovers ({holdoverItems.length})</h2>
+        <p style={{ color: "var(--muted)", fontSize: 13 }}>Ranked separately from new priority packages</p>
+        {holdoverItems.slice(0, 5).map((h) => (
+          <div key={h.id} style={{ fontSize: 13, marginTop: 8 }}>
+            <Link href={`/runs/${run.id}/actions/${h.id}`} style={{ color: "var(--accent)" }}>
+              {h.actionTitle}
+            </Link>
+          </div>
+        ))}
       </section>
 
       {managementPriority.length > 0 && (

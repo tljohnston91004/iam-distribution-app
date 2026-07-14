@@ -1,4 +1,5 @@
 import { FEATURED_PRIORITY_COUNT } from "@/lib/iam/constants";
+import { groupCandidatesIntoWorkPackages } from "@/lib/iam/engine/ranking";
 import { recommendPlaybook } from "@/lib/iam/playbooks";
 import { exportContainsProtectedContent, filterNotesForView } from "@/lib/iam/notes";
 import { canTransition, isTerminalState } from "@/lib/iam/workflow-states";
@@ -63,29 +64,66 @@ export function runUnitValidation(): ValidationCase[] {
     );
   }
 
-  // Matrix #1 — top 2 featured model
+  // Matrix #1 — top 2 featured work packages
   {
-    const ranked = rankFixtures([
-      scoreFixture(FIXTURE_SKU_100_TRAPPED),
-      scoreFixture(FIXTURE_SKU_200_STOCK),
-      scoreFixture(FIXTURE_SKU_210_OVERRIDE),
-    ]);
-    const top2 = ranked.slice(0, FEATURED_PRIORITY_COUNT);
+    const skuCandidates = [
+      ...scoreFixture({ ...FIXTURE_SKU_100_TRAPPED, vendor: "Acme Parts" }),
+      ...scoreFixture({ ...FIXTURE_SKU_200_STOCK, vendor: "Critical Supply" }),
+      ...scoreFixture({ ...FIXTURE_SKU_210_OVERRIDE, vendor: "Critical Supply" }),
+      ...scoreFixture({
+        sku: "SKU-110",
+        qoh: 180,
+        cost: 70,
+        units: 6,
+        sales: 420,
+        confidence: "Medium Confidence" as const,
+        vendor: "Acme Parts",
+      }),
+    ];
+    const packages = groupCandidatesIntoWorkPackages(skuCandidates);
+    const top2 = packages.slice(0, FEATURED_PRIORITY_COUNT);
+    const multiSkuPackage = packages.find((p) => p.childSkuIds.length > 1);
+    const coveredSkus = top2.reduce((sum, p) => sum + p.childSkuIds.length, 0);
     cases.push(
-      top2.length === FEATURED_PRIORITY_COUNT
-        ? pass("PF-01", "Top-2 featured surfacing", "Pass/Fail Matrix", "doc 07 §9", `${FEATURED_PRIORITY_COUNT} featured candidates available from ranking`)
-        : fail("PF-01", "Top-2 featured surfacing", "Pass/Fail Matrix", "doc 07 §9", `Expected ${FEATURED_PRIORITY_COUNT} ranked candidates, got ${top2.length}`)
+      top2.length === FEATURED_PRIORITY_COUNT && Boolean(multiSkuPackage) && coveredSkus >= 3
+        ? pass(
+            "PF-01",
+            "Top-2 featured work-package surfacing",
+            "Pass/Fail Matrix",
+            "doc 07 §9",
+            `${FEATURED_PRIORITY_COUNT} featured packages cover ${coveredSkus} SKUs (engine groups by action type + vendor)`
+          )
+        : fail(
+            "PF-01",
+            "Top-2 featured work-package surfacing",
+            "Pass/Fail Matrix",
+            "doc 07 §9",
+            `Expected ${FEATURED_PRIORITY_COUNT} packages with multi-SKU grouping; got ${top2.length} packages / ${coveredSkus} SKUs`
+          )
     );
   }
 
-  // SC-004 / PF-02 — no auto-backfill transition rule (workflow design)
+  // SC-004 / PF-02 — no auto-backfill of featured slots; execution release is separate
   {
     const fromFeatured = canTransition("Featured", "Rejected for Cycle");
     const rejectedCantJumpToFeatured = !canTransition("Rejected for Cycle", "Featured");
+    const candidateCanRelease = canTransition("Candidate", "Approved");
     cases.push(
-      fromFeatured && rejectedCantJumpToFeatured
-        ? pass("SC-004", "Rejected top-priority — no same-cycle backfill", "Workflow", "doc 07 §SC-004", "Reject path exists; rejected items cannot re-enter featured in same transition table")
-        : fail("SC-004", "Rejected top-priority — no same-cycle backfill", "Workflow", "doc 07 §SC-004", "Workflow transition table allows improper same-cycle backfill")
+      fromFeatured && rejectedCantJumpToFeatured && candidateCanRelease
+        ? pass(
+            "SC-004",
+            "Rejected featured package — no same-cycle backfill",
+            "Workflow",
+            "doc 07 §SC-004",
+            "Reject clears featured focus; Candidate→Approved releases execution without backfilling featured slots"
+          )
+        : fail(
+            "SC-004",
+            "Rejected featured package — no same-cycle backfill",
+            "Workflow",
+            "doc 07 §SC-004",
+            "Workflow transition table incorrect for featured reject / execution release"
+          )
     );
   }
 
@@ -112,7 +150,7 @@ export function runUnitValidation(): ValidationCase[] {
         : fail("SC-007", "Management-elevated item", "Management Priority", "doc 07 §SC-007", "Management priority flag not supported")
     );
     cases.push(
-      pass("SC-008", "Material-event 3rd priority", "Management Priority", "doc 07 §SC-008", "featuredSlot 3 supported without replacing top-2 logic — integration test verifies")
+      pass("SC-008", "Material-event 3rd package", "Management Priority", "doc 07 §SC-008", "featuredSlot 3 supported without replacing top-2 work-package logic — integration test verifies")
     );
   }
 

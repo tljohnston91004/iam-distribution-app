@@ -18,7 +18,10 @@ export default async function RunWorkspacePage({
     where: { id: runId },
     include: {
       company: true,
-      actions: { orderBy: { priorityScore: "desc" } },
+      actions: {
+        orderBy: { priorityScore: "desc" },
+        include: { _count: { select: { groupedItems: true } } },
+      },
       actionCandidates: { orderBy: { rankedPosition: "asc" }, take: 20 },
       dataGaps: true,
       moduleSignals: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -28,11 +31,17 @@ export default async function RunWorkspacePage({
 
   if (!run) notFound();
 
-  const featured = run.actions.filter((a) => a.featuredSlot != null && a.featuredSlot <= 2);
-  const holdovers = run.actions.filter((a) => a.workflowState === "Holdover");
-  const managementPriority = run.actions.filter((a) => a.managementPriorityFlag);
-  const active = run.actions.filter((a) => a.workflowState === "Active");
-  const awaiting = run.actions.filter((a) => a.workflowState === "Awaiting Acceptance");
+  const actionsForUi = run.actions.map((a) => ({
+    ...a,
+    childCount: a.groupedActionFlag ? a._count.groupedItems : a._count.groupedItems || 1,
+  }));
+
+  const featured = actionsForUi.filter((a) => a.featuredSlot != null && a.featuredSlot <= 2);
+  const holdovers = actionsForUi.filter((a) => a.workflowState === "Holdover");
+  const managementPriority = actionsForUi.filter((a) => a.managementPriorityFlag);
+  const active = actionsForUi.filter((a) => a.workflowState === "Active");
+  const awaiting = actionsForUi.filter((a) => a.workflowState === "Awaiting Acceptance");
+  const executionCandidates = actionsForUi.filter((a) => a.workflowState === "Candidate");
   const lowConfFeatured = featured.filter(
     (a) => a.confidenceLevel.includes("Low") || a.confidenceLevel.includes("Insufficient")
   );
@@ -43,12 +52,14 @@ export default async function RunWorkspacePage({
     dataGapCount: run.dataGaps.length,
     awaitingAcceptanceCount: awaiting.length,
     lowConfidenceFeaturedCount: lowConfFeatured.length,
+    executionQueueCount: executionCandidates.length,
   });
 
   const nextAction = nextBestAction({
     featuredCount: featured.length,
     holdoverCount: holdovers.length,
     activeCount: active.length,
+    executionQueueCount: executionCandidates.length,
   });
 
   return (
@@ -79,6 +90,7 @@ export default async function RunWorkspacePage({
       <RunWorkspace
         run={{
           ...run,
+          actions: actionsForUi,
           reviewWeekStart: run.reviewWeekStart.toISOString(),
           reviewWeekEnd: run.reviewWeekEnd.toISOString(),
         }}

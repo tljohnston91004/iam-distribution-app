@@ -59,7 +59,8 @@ export function AssignedActionsPanel({
   if (actions.length === 0) {
     return (
       <p style={{ marginTop: 24, color: "var(--muted)", fontSize: 14 }}>
-        No assigned actions for {ownerFilter}. Approve featured priorities on the management dashboard first.
+        No assigned actions for {ownerFilter}. Approve a featured package or release one from the execution queue
+        on the management dashboard first.
       </p>
     );
   }

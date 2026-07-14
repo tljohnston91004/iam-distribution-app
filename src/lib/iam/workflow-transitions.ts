@@ -2,6 +2,7 @@ import type { ActionWorkflowState } from "./enums";
 import { canTransition } from "./workflow-states";
 
 const TRANSITION_LABELS: Partial<Record<ActionWorkflowState, string>> = {
+  Featured: "Promote to featured review",
   Approved: "Approve",
   "Rejected for Cycle": "Reject for cycle",
   "Awaiting Acceptance": "Assign — awaiting acceptance",
@@ -14,6 +15,7 @@ const TRANSITION_LABELS: Partial<Record<ActionWorkflowState, string>> = {
 
 export function getAllowedTransitions(from: ActionWorkflowState): { state: ActionWorkflowState; label: string }[] {
   const all: ActionWorkflowState[] = [
+    "Featured",
     "Approved",
     "Rejected for Cycle",
     "Awaiting Acceptance",
@@ -27,6 +29,9 @@ export function getAllowedTransitions(from: ActionWorkflowState): { state: Actio
     .filter((to) => canTransition(from, to))
     .map((state) => ({
       state,
-      label: TRANSITION_LABELS[state] ?? state,
+      label:
+        from === "Candidate" && state === "Approved"
+          ? "Release to execution"
+          : (TRANSITION_LABELS[state] ?? state),
     }));
 }

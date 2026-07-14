@@ -9,13 +9,14 @@ export function buildRunBanners(input: {
   dataGapCount: number;
   awaitingAcceptanceCount: number;
   lowConfidenceFeaturedCount: number;
+  executionQueueCount?: number;
 }): RunBanner[] {
   const banners: RunBanner[] = [];
 
   if (input.lowConfidenceFeaturedCount > 0) {
     banners.push({
       level: "warn",
-      message: `${input.lowConfidenceFeaturedCount} featured issue(s) have limited confidence — review cautiously.`,
+      message: `${input.lowConfidenceFeaturedCount} featured work package(s) have limited confidence — review cautiously.`,
     });
   }
 
@@ -30,6 +31,13 @@ export function buildRunBanners(input: {
     banners.push({
       level: "warn",
       message: "Growing holdover count may require management review and reprioritization.",
+    });
+  }
+
+  if ((input.executionQueueCount ?? 0) > 0) {
+    banners.push({
+      level: "info",
+      message: `${input.executionQueueCount} ranked work package(s) sit in the execution queue — release them to owners without waiting on featured slots.`,
     });
   }
 
@@ -54,15 +62,19 @@ export function nextBestAction(input: {
   featuredCount: number;
   holdoverCount: number;
   activeCount: number;
+  executionQueueCount?: number;
 }): string {
   if (input.featuredCount > 0) {
-    return "Review top featured priorities and approve, reject, or assign in this cycle.";
+    return "Review featured work packages, then release additional packages from the execution queue as capacity allows.";
+  }
+  if ((input.executionQueueCount ?? 0) > 0) {
+    return "Featured focus is clear — release ranked packages from the execution queue to owners.";
   }
   if (input.activeCount > 0) {
-    return "Follow up on active assigned actions and confirm progress.";
+    return "Follow up on active assigned work packages and confirm progress.";
   }
   if (input.holdoverCount > 0) {
-    return "Review holdovers separately from new priorities.";
+    return "Review holdovers separately from new priority packages.";
   }
-  return "Load data and calculate to surface this week's featured priorities.";
+  return "Load data and calculate to surface this week's work packages.";
 }
