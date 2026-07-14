@@ -1,14 +1,25 @@
 /**
  * IAM V1.0 fixed configuration — validation-stage build.
  * Priority weights are NOT user-adjustable in V1 (doc 00 §4, Build Brief §6).
- * Stage 2 will implement full scoring from doc 04 using these defaults.
+ *
+ * Surfacing unit is the work package (grouped business case), not a lone SKU.
+ * Management still reviews a small featured set; owners get a broader execution queue.
  */
 
-/** Core weekly surfaced priorities */
+/** Featured unit for management review */
+export const FEATURED_UNIT = "work_package" as const;
+
+/** Core weekly management-focus work packages */
 export const FEATURED_PRIORITY_COUNT = 2;
 
-/** Management may elevate a 3rd priority for material out-of-cycle events */
+/** Management may elevate a 3rd package for material out-of-cycle events */
 export const MAX_MANAGEMENT_PRIORITY_SLOTS = 3;
+
+/**
+ * Ranked Candidate packages beyond featured remain available for execution release
+ * (Candidate → Approved) without auto-backfilling featured slots.
+ */
+export const EXECUTION_QUEUE_VISIBLE_COUNT = 12;
 
 /** Default weekly rhythm label */
 export const DEFAULT_RUN_NAME = "Weekly Inventory Action Review";

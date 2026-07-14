@@ -26,12 +26,24 @@ export async function transitionAction(
 
   assertTransition(from, toState);
 
-  if (from === "Featured" && toState !== "Rejected for Cycle") {
+  const leavingFocusOrReleasing =
+    (from === "Featured" && toState !== "Rejected for Cycle") ||
+    (from === "Candidate" && toState === "Approved");
+
+  if (leavingFocusOrReleasing) {
     if (!opts?.ownerRole && !opts?.ownerName && !action.ownerRole && !action.ownerName) {
-      throw new Error("Owner required before leaving featured status");
+      throw new Error(
+        from === "Candidate"
+          ? "Owner required before releasing a package to execution"
+          : "Owner required before leaving featured status"
+      );
     }
     if (!opts?.dueDate && !opts?.reviewDate && !action.dueDate && !action.reviewDate) {
-      throw new Error("Due or review date required before leaving featured status");
+      throw new Error(
+        from === "Candidate"
+          ? "Due or review date required before releasing a package to execution"
+          : "Due or review date required before leaving featured status"
+      );
     }
   }
 

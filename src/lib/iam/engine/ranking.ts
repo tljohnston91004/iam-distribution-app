@@ -8,16 +8,30 @@ import {
   evidenceStrengthFromConfidence,
   readinessFromConfidence,
 } from "./confidence";
-import type { IfmSignalFlags, RseSignalFlags, ScoredCandidate, SkuEvidence } from "../types";
+import type {
+  IfmSignalFlags,
+  RseSignalFlags,
+  ScoredCandidate,
+  SkuEvidence,
+  WorkPackage,
+} from "../types";
 
 const TRAPPED_CASH_WEEKS = 26;
 const STOCK_RISK_WEEKS = 2;
 const WEAK_DEMAND_WEEKS = 52;
 
+export const UNASSIGNED_VENDOR_KEY = "_unassigned";
+
+export function normalizeVendorKey(vendorName?: string | null): string {
+  const trimmed = vendorName?.trim();
+  return trimmed ? trimmed : UNASSIGNED_VENDOR_KEY;
+}
+
 export function buildSkuEvidence(
   sku: string,
   inv?: {
     description?: string | null;
+    vendorName?: string | null;
     quantityOnHand: number;
     cost?: number | null;
     inventoryValue?: number | null;
@@ -39,6 +53,7 @@ export function buildSkuEvidence(
   return {
     skuOrItemId: sku,
     description: inv?.description ?? undefined,
+    vendorName: inv?.vendorName ?? null,
     quantityOnHand: qoh,
     cost,
     inventoryValue: value,
@@ -216,11 +231,13 @@ function scoreCandidate(input: {
     readinessLabel: readiness,
     confidenceLevel: evidence.dataConfidence,
     suppressedFlag: suppressed,
+    vendorKey: normalizeVendorKey(evidence.vendorName),
     detail: {
       reason: input.reason,
       weeksOfSupply: evidence.weeksOfSupply,
       overrideApplied: override,
       actionStrength: actionStrengthFromScore(priorityScore, evidence.dataConfidence),
+      vendorKey: normalizeVendorKey(evidence.vendorName),
       rse: input.rse,
       ifm: input.ifm,
     },
@@ -240,6 +257,108 @@ function dedupeByActionType(candidates: ScoredCandidate[]): ScoredCandidate[] {
 export function rankNewPriorityCandidates(candidates: ScoredCandidate[]): ScoredCandidate[] {
   return [...candidates]
     .filter((c) => !c.suppressedFlag && c.priorityCategory === "new_priority")
+    .sort((a, b) => b.priorityScore - a.priorityScore);
+}
+
+/**
+ * Collapse SKU-level candidates into work packages:
+ * same action type + vendor/business case → one package with many child SKUs.
+ */
+export function groupCandidatesIntoWorkPackages(candidates: ScoredCandidate[]): WorkPackage[] {
+  const ranked = rankNewPriorityCandidates(candidates);
+  const buckets = new Map<string, ScoredCandidate[]>();
+
+  for (const c of ranked) {
+    const vendorKey = c.vendorKey ?? normalizeVendorKey(
+      typeof c.detail.vendorKey === "string" ? c.detail.vendorKey : null
+    );
+    const key = `${c.actionType}::${vendorKey}`;
+    const list = buckets.get(key) ?? [];
+    list.push(c);
+    buckets.set(key, list);
+  }
+
+  const packages: WorkPackage[] = [];
+  for (const [packageKey, members] of buckets) {
+    const sorted = [...members].sort((a, b) => b.priorityScore - a.priorityScore);
+    const lead = sorted[0];
+    if (!lead) continue;
+
+    const vendorKey = lead.vendorKey ?? UNASSIGNED_VENDOR_KEY;
+    const childSkuIds = sorted.map((m) => m.skuOrItemId);
+    const estimatedCashImpact = sorted.reduce((sum, m) => sum + (m.estimatedCashImpact || 0), 0);
+    const serviceRiskScore = Math.max(...sorted.map((m) => m.serviceRiskScore));
+    const cashImpactScore = Math.max(...sorted.map((m) => m.cashImpactScore));
+    const avgPriority =
+      sorted.reduce((sum, m) => sum + m.priorityScore, 0) / Math.max(sorted.length, 1);
+    // Lead score dominates; package breadth (more SKUs / cash) boosts without drowning focus.
+    const breadthBonus = Math.min(18, Math.log10(Math.max(childSkuIds.length, 1)) * 10);
+    const cashBonus = Math.min(12, Math.log10(Math.max(estimatedCashImpact, 1) + 1) * 3);
+    const priorityScore = lead.priorityScore * 0.7 + avgPriority * 0.3 + breadthBonus + cashBonus;
+
+    const confOrder = ["High Confidence", "Medium Confidence", "Low Confidence", "Insufficient Data", "Unknown"];
+    const confidenceLevel = sorted.reduce((worst, m) => {
+      return confOrder.indexOf(m.confidenceLevel) > confOrder.indexOf(worst)
+        ? m.confidenceLevel
+        : worst;
+    }, lead.confidenceLevel);
+
+    const readinessLabel = sorted.some((m) => m.readinessLabel.includes("Insufficient"))
+      ? "Insufficient Support for Normal Surfacing"
+      : sorted.some((m) => m.readinessLabel.includes("Limitation"))
+        ? "Ready with Limitations"
+        : lead.readinessLabel;
+
+    const vendorLabel =
+      vendorKey === UNASSIGNED_VENDOR_KEY ? "mixed / unassigned vendor" : vendorKey;
+    const packageTitle =
+      childSkuIds.length === 1
+        ? lead.candidateTitle
+        : `${lead.actionType} — ${vendorLabel} (${childSkuIds.length} SKUs)`;
+
+    packages.push({
+      packageKey,
+      actionType: lead.actionType,
+      vendorKey,
+      packageTitle,
+      leadSkuOrItemId: lead.skuOrItemId,
+      childSkuIds,
+      sourceType: lead.sourceType,
+      evidenceStrength: lead.evidenceStrength,
+      estimatedCashImpact,
+      serviceOperationalRisk: sorted.some((m) => m.serviceOperationalRisk),
+      serviceRiskScore,
+      cashImpactScore,
+      priorityScore,
+      priorityCategory: "new_priority",
+      readinessLabel,
+      confidenceLevel,
+      suppressedFlag: false,
+      members: sorted,
+      detail: {
+        unit: "work_package",
+        packageKey,
+        vendorKey,
+        childCount: childSkuIds.length,
+        childSkuIds,
+        leadSkuOrItemId: lead.skuOrItemId,
+        actionStrength: actionStrengthFromScore(priorityScore, confidenceLevel),
+        memberReasons: sorted.map((m) => ({
+          skuOrItemId: m.skuOrItemId,
+          reason: m.detail.reason,
+          priorityScore: m.priorityScore,
+          estimatedCashImpact: m.estimatedCashImpact,
+        })),
+      },
+    });
+  }
+
+  return packages.sort((a, b) => b.priorityScore - a.priorityScore);
+}
+
+export function rankWorkPackages(packages: WorkPackage[]): WorkPackage[] {
+  return [...packages]
+    .filter((p) => !p.suppressedFlag && p.priorityCategory === "new_priority")
     .sort((a, b) => b.priorityScore - a.priorityScore);
 }
 

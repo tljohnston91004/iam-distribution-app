@@ -6,7 +6,8 @@ import {
 
 /** Allowed workflow transitions for V1 validation build (doc 02 §8, Build Brief §8). */
 const TRANSITIONS: Partial<Record<ActionWorkflowState, readonly ActionWorkflowState[]>> = {
-  Candidate: ["Featured", "Suppressed"],
+  // Featured = management-focus slots; Approved from Candidate = execution release (no featured backfill).
+  Candidate: ["Featured", "Approved", "Suppressed"],
   Featured: ["Approved", "Rejected for Cycle", "Holdover"],
   Approved: ["Awaiting Acceptance", "Active"],
   "Rejected for Cycle": [], // returns to future cycle evaluation as new Candidate — no same-cycle backfill

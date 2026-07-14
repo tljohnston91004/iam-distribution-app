@@ -42,14 +42,16 @@ IAM is **not**: replenishment engine, PO system, write-back tool, ERP replacemen
 - Confidence **modifies strength/certainty** — not the lead ranking factor.
 - **New priorities and holdovers rank separately.**
 
-### Weekly top-2 cycle
-- **Top 2** = core featured weekly priorities.
-- Management **approves or rejects** in the same cycle.
-- **Rejected top priorities do not auto-replace** with lower-ranked items — week may end with **zero** approved top priorities.
-- Approved items need **owner + due/review date** before leaving featured status.
-- Unresolved featured items → **holdover** at week end.
-- Management may **elevate** items; material out-of-cycle events may create a **3rd top priority**.
-- Management-priority items stay active **outside** the normal top-2 cycle.
+### Weekly featured work-package cycle
+- Surfacing unit is the **work package** (shared action type + vendor/business case), not a lone SKU.
+- **Top 2 work packages** = core management-focus priorities for the week.
+- Ranked **Candidate packages** may be **released to execution** without using a featured slot.
+- Management **approves or rejects** featured packages in the same cycle.
+- **Rejected featured packages do not auto-replace** with lower-ranked packages — week may end with **zero** approved featured packages.
+- Approved / released packages need **owner + due/review date**.
+- Unresolved featured packages → **holdover** at week end.
+- Management may **elevate** packages; material out-of-cycle events may create a **3rd featured package**.
+- Management-priority packages stay active **outside** the normal top-2 focus cycle.
 
 ### Grouped actions
 - One business decision case, **one owner**, **one action type**.

@@ -19,15 +19,15 @@ function skip(id: string, name: string, area: string, docRef: string, message: s
   return { id, name, area, docRef, status: "skip", message };
 }
 
-/** Extended inventory for doc 07 validation scenarios. */
+/** Extended inventory for doc 07 validation scenarios. Vendors drive work-package grouping. */
 export const VALIDATION_INVENTORY = [
-  { sku: "SKU-100", desc: "Slow mover — trapped cash", qoh: 240, cost: 85, units: 8, sales: 640, confidence: "Medium Confidence" },
-  { sku: "SKU-200", desc: "Fast mover — stock risk", qoh: 12, cost: 42, units: 180, sales: 7560, confidence: "Medium Confidence" },
-  { sku: "SKU-210", desc: "Critical backorder override", qoh: 8, cost: 55, units: 200, sales: 11000, confidence: "Medium Confidence" },
-  { sku: "SKU-300", desc: "Moderate excess — lower queue", qoh: 90, cost: 25, units: 20, sales: 500, confidence: "Medium Confidence" },
-  { sku: "SKU-400", desc: "Healthy turnover", qoh: 45, cost: 18, units: 60, sales: 1080, confidence: "Medium Confidence" },
-  { sku: "SKU-500", desc: "Low confidence excess", qoh: 120, cost: 40, units: 6, sales: 240, confidence: "Low Confidence" },
-  { sku: "SKU-600", desc: "Grouped vendor return case", qoh: 30, cost: 90, units: 4, sales: 360, confidence: "Medium Confidence" },
+  { sku: "SKU-100", desc: "Slow mover — trapped cash", qoh: 240, cost: 85, units: 8, sales: 640, confidence: "Medium Confidence", vendor: "Acme Parts" },
+  { sku: "SKU-200", desc: "Fast mover — stock risk", qoh: 12, cost: 42, units: 180, sales: 7560, confidence: "Medium Confidence", vendor: "Critical Supply" },
+  { sku: "SKU-210", desc: "Critical backorder override", qoh: 8, cost: 55, units: 200, sales: 11000, confidence: "Medium Confidence", vendor: "Critical Supply" },
+  { sku: "SKU-300", desc: "Moderate excess — lower queue", qoh: 90, cost: 25, units: 20, sales: 500, confidence: "Medium Confidence", vendor: "Acme Parts" },
+  { sku: "SKU-400", desc: "Healthy turnover", qoh: 45, cost: 18, units: 60, sales: 1080, confidence: "Medium Confidence", vendor: "Steady Co" },
+  { sku: "SKU-500", desc: "Low confidence excess", qoh: 120, cost: 40, units: 6, sales: 240, confidence: "Low Confidence", vendor: "Budget Line" },
+  { sku: "SKU-600", desc: "Grouped vendor return case", qoh: 30, cost: 90, units: 4, sales: 360, confidence: "Medium Confidence", vendor: "Return Vendor Co" },
 ];
 
 export async function seedValidationData(iamRunId: string) {
@@ -45,6 +45,7 @@ export async function seedValidationData(iamRunId: string) {
         iamRunId,
         skuOrItemId: row.sku,
         description: row.desc,
+        vendorName: row.vendor,
         quantityOnHand: row.qoh,
         cost: row.cost,
         inventoryValue: row.qoh * row.cost,
@@ -72,10 +73,19 @@ export async function seedValidationData(iamRunId: string) {
 }
 
 export async function applyPostCalculateFixtures(iamRunId: string) {
-  const grouped = await prisma.action.findFirst({
-    where: { iamRunId, skuOrItemId: "SKU-600" },
-  });
+  // Engine already groups multi-SKU packages. SKU-600 validates partial child resolution semantics.
+  const grouped =
+    (await prisma.action.findFirst({
+      where: { iamRunId, skuOrItemId: "SKU-600" },
+    })) ??
+    (await prisma.action.findFirst({
+      where: {
+        iamRunId,
+        detailJson: { contains: "SKU-600" },
+      },
+    }));
   if (grouped) {
+    await prisma.groupedActionItem.deleteMany({ where: { actionId: grouped.id } });
     await prisma.action.update({
       where: { id: grouped.id },
       data: {
@@ -92,9 +102,15 @@ export async function applyPostCalculateFixtures(iamRunId: string) {
     });
   }
 
-  const mgmt = await prisma.action.findFirst({
-    where: { iamRunId, workflowState: "Candidate", skuOrItemId: "SKU-300" },
-  });
+  // Elevate a Candidate package that covers SKU-300 (Acme trapped-cash package may be featured already).
+  const mgmt =
+    (await prisma.action.findFirst({
+      where: { iamRunId, workflowState: "Candidate", detailJson: { contains: "SKU-300" } },
+    })) ??
+    (await prisma.action.findFirst({
+      where: { iamRunId, workflowState: "Candidate" },
+      orderBy: { priorityScore: "asc" },
+    }));
   if (mgmt) {
     await prisma.action.update({
       where: { id: mgmt.id },
@@ -103,7 +119,11 @@ export async function applyPostCalculateFixtures(iamRunId: string) {
   }
 
   const material = await prisma.action.findFirst({
-    where: { iamRunId, skuOrItemId: "SKU-500", workflowState: "Candidate" },
+    where: {
+      iamRunId,
+      workflowState: "Candidate",
+      OR: [{ skuOrItemId: "SKU-500" }, { detailJson: { contains: "SKU-500" } }],
+    },
   });
   if (material) {
     await prisma.action.update({
@@ -112,7 +132,7 @@ export async function applyPostCalculateFixtures(iamRunId: string) {
         workflowState: "Featured",
         featuredSlot: 3,
         firstSurfacedDate: new Date(),
-        actionTitle: "Material event — low-confidence review (3rd priority)",
+        actionTitle: "Material event — low-confidence review (3rd package)",
       },
     });
   }
@@ -147,20 +167,39 @@ export async function runIntegrationValidation(iamRunId?: string): Promise<{ cas
     const actions = await prisma.action.findMany({ where: { iamRunId: runId } });
     const featured = actions.filter((a) => a.featuredSlot != null && a.featuredSlot <= 2);
     const slot3 = actions.find((a) => a.featuredSlot === 3);
-    const grouped = actions.find((a) => a.groupedActionFlag);
+    const grouped =
+      actions.find((a) => a.actionTitle.includes("SKU-600")) ??
+      actions.find((a) => a.groupedActionFlag);
     const mgmtPriority = actions.find((a) => a.managementPriorityFlag);
     const lowConf = actions.find((a) => a.skuOrItemId === "SKU-500");
 
-    cases.push(
-      featured.length >= 2
-        ? pass("INT-01", "Calculate produces top-2 featured", "Integration", "doc 07 §8", `${featured.length} featured priorities after calculate`)
-        : fail("INT-01", "Calculate produces top-2 featured", "Integration", "doc 07 §8", `Expected ≥2 featured, got ${featured.length}`)
-    );
+    const multiSkuFeatured = featured.filter((a) => a.groupedActionFlag);
+    const featuredChildCount = await prisma.groupedActionItem.count({
+      where: { actionId: { in: featured.map((a) => a.id) } },
+    });
 
     cases.push(
-      featured.some((a) => a.skuOrItemId === "SKU-100" || a.actionType.includes("Trapped"))
-        ? pass("INT-SC001", "Trapped cash in featured set", "Integration", "doc 07 §SC-001", "Trapped-cash SKU surfaced in featured or candidate set")
-        : pass("INT-SC001", "Trapped cash in featured set", "Integration", "doc 07 §SC-001", "Trapped cash present in action queue (may rank slot 2 when override leads)")
+      featured.length >= 2
+        ? pass(
+            "INT-01",
+            "Calculate produces top-2 featured work packages",
+            "Integration",
+            "doc 07 §8",
+            `${featured.length} featured packages (${multiSkuFeatured.length} multi-SKU; ${featuredChildCount} child SKUs on featured)`
+          )
+        : fail("INT-01", "Calculate produces top-2 featured work packages", "Integration", "doc 07 §8", `Expected ≥2 featured packages, got ${featured.length}`)
+    );
+
+    const trappedInQueue = actions.some(
+      (a) =>
+        a.actionType.includes("Trapped") ||
+        a.skuOrItemId === "SKU-100" ||
+        (a.detailJson ?? "").includes("SKU-100")
+    );
+    cases.push(
+      trappedInQueue
+        ? pass("INT-SC001", "Trapped cash in work-package queue", "Integration", "doc 07 §SC-001", "Trapped-cash SKU covered by a ranked work package")
+        : fail("INT-SC001", "Trapped cash in work-package queue", "Integration", "doc 07 §SC-001", "Trapped-cash SKU missing from packages")
     );
 
     cases.push(
@@ -171,7 +210,7 @@ export async function runIntegrationValidation(iamRunId?: string): Promise<{ cas
 
     cases.push(
       mgmtPriority?.managementPriorityFlag
-        ? pass("INT-SC007", "Management-priority flag persisted", "Integration", "doc 07 §SC-007", "SKU-300 elevated as management-priority item")
+        ? pass("INT-SC007", "Management-priority flag persisted", "Integration", "doc 07 §SC-007", "Candidate package elevated as management-priority")
         : fail("INT-SC007", "Management-priority flag persisted", "Integration", "doc 07 §SC-007", "Management priority fixture missing")
     );
 
