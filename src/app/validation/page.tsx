@@ -1,11 +1,32 @@
 import Link from "next/link";
 import { ValidationPanel } from "@/components/ValidationPanel";
 import { runFullValidation } from "@/lib/iam/validation/run-all";
+import type { AcceptanceItem, ValidationReport } from "@/lib/iam/validation/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function ValidationPage() {
-  const { report, checklist, validationRunId } = await runFullValidation({ integration: false });
+  let report: ValidationReport;
+  let checklist: AcceptanceItem[];
+  let validationRunId: string | null = null;
+  let loadError: string | null = null;
+
+  try {
+    const result = await runFullValidation({ integration: false });
+    report = result.report;
+    checklist = result.checklist;
+    validationRunId = result.validationRunId;
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : String(err);
+    report = {
+      ranAt: new Date().toISOString(),
+      summary: { pass: 0, fail: 0, skip: 0, total: 0 },
+      cases: [],
+      readinessLevel: "Level 3 - Functional Test Ready",
+      uatWorkbookPresent: false,
+    };
+    checklist = [];
+  }
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px" }}>
@@ -23,6 +44,12 @@ export default async function ValidationPage() {
           (`docs/workbooks/IAM_UAT_Validation_Test_Workbook_v1_1.xlsx`) is the formal manual pass/fail control.
         </p>
       </header>
+
+      {loadError && (
+        <p style={{ marginTop: 16, color: "var(--bad)", fontSize: 13 }}>
+          Initial load hit a problem ({loadError}). Use the buttons below to re-run validation.
+        </p>
+      )}
 
       <ValidationPanel
         initialReport={report}

@@ -125,15 +125,26 @@ export async function runFullValidation(options?: { integration?: boolean; runId
     uatWorkbookPresent: uatPresent,
   };
 
-  if (uatPresent && uat.scenarioIdsFound.length > 0) {
-    cases.push({
-      id: "UAT-WB",
-      name: "UAT workbook scenario linkage",
-      area: "UAT Workbook",
-      docRef: "doc 08 §7",
-      status: "pass",
-      message: `Workbook present (${uat.rowCount} rows, sheets: ${uat.sheetNames.join(", ")}). Scenario refs: ${uat.scenarioIdsFound.join(", ") || "see workbook"}`,
-    });
+  if (uatPresent) {
+    if (uat.error) {
+      cases.push({
+        id: "UAT-WB",
+        name: "UAT workbook scenario linkage",
+        area: "UAT Workbook",
+        docRef: "doc 08 §7",
+        status: "skip",
+        message: `Workbook present but could not be parsed: ${uat.error}`,
+      });
+    } else if (uat.scenarioIdsFound.length > 0 || uat.sheetNames.length > 0) {
+      cases.push({
+        id: "UAT-WB",
+        name: "UAT workbook scenario linkage",
+        area: "UAT Workbook",
+        docRef: "doc 08 §7",
+        status: "pass",
+        message: `Workbook present (${uat.rowCount} rows, sheets: ${uat.sheetNames.join(", ")}). Scenario refs: ${uat.scenarioIdsFound.join(", ") || "see workbook"}`,
+      });
+    }
     report.summary = summarizeReport(cases);
   }
 

@@ -2,6 +2,27 @@
 
 Authoritative build package extracted from `Desktop/IAM-Dist/`.
 
+## Version 1.5 control documents
+
+| Document | Path |
+|----------|------|
+| **Phase Authorization Register** (Project Owner authorization required before each phase) | [`IAM_V1_5_Phase_Authorization_Register.md`](./IAM_V1_5_Phase_Authorization_Register.md) |
+| **Implementation Dashboard** (running status) | [`IAM_V1_5_Implementation_Dashboard.md`](./IAM_V1_5_Implementation_Dashboard.md) |
+| **ADR-IAM-001** (Canonical Inbound Port / replaceable adapters) | [`architecture/ADR-IAM-001-Canonical-Inbound-Port-and-Replaceable-Source-Adapter-Architecture.md`](./architecture/ADR-IAM-001-Canonical-Inbound-Port-and-Replaceable-Source-Adapter-Architecture.md) |
+| **V1.5 Implementation Plan** | [`IAM_V1_5_Implementation_Plan.md`](./IAM_V1_5_Implementation_Plan.md) |
+| **Governance control files** | [`governance/`](./governance/) (Assumptions, Questions, ADR index, Defect, Tech debt, SD gates) |
+| **Company standards** | [`standards/`](./standards/) — includes **DPVS Final v1.0** (Design Partner Validation Standard) |
+| **DPVS package (canonical)** | [`design-partner/`](./design-partner/) — IAM V1.5 first module implementation |
+| **Specification Errata** | [`errata/IAM_V1_5_Specification_Errata.md`](./errata/IAM_V1_5_Specification_Errata.md) |
+| **Prescribed Action Plan** (required Recommendation content) | [`IAM_V1_5_Prescribed_Action_Plan.md`](./IAM_V1_5_Prescribed_Action_Plan.md) |
+| **PAP — PO review stop** | [`IAM_V1_5_Prescribed_Action_Plan_PO_Review_Stop.md`](./IAM_V1_5_Prescribed_Action_Plan_PO_Review_Stop.md) |
+| **Revised scoring — pre-build review** | [`IAM_Actions_Revised_Scoring_Pre_Build_Review.md`](./IAM_Actions_Revised_Scoring_Pre_Build_Review.md) |
+| **Revised scoring — completion / gaps** | [`IAM_Actions_Revised_Scoring_Completion_Report.md`](./IAM_Actions_Revised_Scoring_Completion_Report.md) |
+| **Phase Completion Reports** | [`phase-reports/`](./phase-reports/) |
+| Keystroke upload checklist | [`KEYSTROKE-UPLOAD-CHECKLIST.md`](./KEYSTROKE-UPLOAD-CHECKLIST.md) |
+
+External IAM Version 1.5 specifications (Desktop package) remain the product authority. ADR-IAM-001 is the controlling **integration** architecture. Update the Implementation Dashboard at the end of every work session and phase checkpoint. No phase implementation may begin until the Phase Authorization Register marks that phase **Authorized**.
+
 ## Active front-door handoff files
 
 Use these **together** with the numbered package:

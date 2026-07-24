@@ -2,6 +2,7 @@ import {
   SERVICE_RISK_OVERRIDE_MIN_RATIO,
   V1_RANKING_WEIGHTS,
 } from "../constants";
+import { cashImpactScore, compareByBusinessImpact } from "./impact-score";
 import {
   actionStrengthFromScore,
   confidenceMultiplier,
@@ -22,6 +23,13 @@ export function buildSkuEvidence(
     cost?: number | null;
     inventoryValue?: number | null;
     dataConfidence: string;
+    classification?: string | null;
+    vendorName?: string | null;
+    category?: string | null;
+    department?: string | null;
+    locationCode?: string | null;
+    productGroup?: string | null;
+    lastSoldDate?: Date | string | null;
   },
   demand?: { unitsSold: number; grossSalesDollars: number; dataConfidence: string },
   supply?: { backorderQuantity?: number | null; openOrderQuantity?: number | null }
@@ -50,6 +58,13 @@ export function buildSkuEvidence(
       demand?.dataConfidence ??
       "Medium Confidence") as SkuEvidence["dataConfidence"],
     weeksOfSupply,
+    classification: inv?.classification ?? null,
+    vendorName: inv?.vendorName ?? null,
+    category: inv?.category ?? null,
+    department: inv?.department ?? null,
+    locationCode: inv?.locationCode ?? null,
+    productGroup: inv?.productGroup ?? null,
+    lastSoldDate: inv?.lastSoldDate ?? null,
   };
 }
 
@@ -66,7 +81,7 @@ export function identifyCandidatesForSku(
     (evidence.inventoryValue != null || evidence.cost != null);
 
   const cashImpact = evidence.inventoryValue ?? 0;
-  const cashScore = Math.min(100, Math.log10(Math.max(cashImpact, 1) + 1) * 25);
+  const cashScore = cashImpactScore(cashImpact);
 
   let serviceRiskScore = 0;
   let serviceRisk = false;
@@ -131,6 +146,7 @@ export function identifyCandidatesForSku(
         rse,
         ifm,
         forceServiceLead: override,
+        criticalOverride: override,
       })
     );
   }
@@ -169,6 +185,7 @@ function scoreCandidate(input: {
   rse: RseSignalFlags;
   ifm: IfmSignalFlags;
   forceServiceLead?: boolean;
+  criticalOverride?: boolean;
 }): ScoredCandidate {
   const { evidence } = input;
   const inventoryCondition =
@@ -220,9 +237,13 @@ function scoreCandidate(input: {
       reason: input.reason,
       weeksOfSupply: evidence.weeksOfSupply,
       overrideApplied: override,
+      criticalOverride: Boolean(input.criticalOverride || override),
+      analysisGrain: "sku",
       actionStrength: actionStrengthFromScore(priorityScore, evidence.dataConfidence),
       rse: input.rse,
       ifm: input.ifm,
+      classification: evidence.classification ?? null,
+      vendorName: evidence.vendorName ?? null,
     },
   };
 }
@@ -240,7 +261,14 @@ function dedupeByActionType(candidates: ScoredCandidate[]): ScoredCandidate[] {
 export function rankNewPriorityCandidates(candidates: ScoredCandidate[]): ScoredCandidate[] {
   return [...candidates]
     .filter((c) => !c.suppressedFlag && c.priorityCategory === "new_priority")
-    .sort((a, b) => b.priorityScore - a.priorityScore);
+    .sort(compareByBusinessImpact);
+}
+
+/** Rank by combined financial + operational business impact (segment or SKU). */
+export function rankAllPriorityCandidates(candidates: ScoredCandidate[]): ScoredCandidate[] {
+  return [...candidates]
+    .filter((c) => c.priorityCategory === "new_priority")
+    .sort(compareByBusinessImpact);
 }
 
 export function assignFeaturedSlots<T extends { featuredSlot?: number | null }>(

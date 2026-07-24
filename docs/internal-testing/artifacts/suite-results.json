@@ -1,0 +1,66 @@
+[
+    {
+        "Suite":  "test:phase1-inbound",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase2-keystroke",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase2-closure",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase3-lifecycle",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase3-closure",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase4-scoring",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase5-board",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    },
+    {
+        "Suite":  "test:phase5a-experience",
+        "Status":  "PASS",
+        "ExitCode":  0,
+        "Pass":  0,
+        "Fail":  0,
+        "Tests":  0
+    }
+]

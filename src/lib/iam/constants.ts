@@ -30,5 +30,5 @@ export const SIBLING_MODULE_URLS = {
   ifm: process.env.IFM_API_URL ?? "http://127.0.0.1:3001",
 } as const;
 
-/** Keystroke export rule */
-export const KEYSTROKE_IMPORT_EXTENSION = ".txt";
+/** Write-back export extension (operational note; Keystroke adapter owns intake). */
+export const LEGACY_IMPORT_READY_EXTENSION = ".txt";

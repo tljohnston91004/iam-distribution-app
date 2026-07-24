@@ -17,6 +17,13 @@ export interface SkuEvidence {
   openOrderQuantity: number | null;
   dataConfidence: ConfidenceLevel;
   weeksOfSupply: number | null;
+  classification?: string | null;
+  vendorName?: string | null;
+  category?: string | null;
+  department?: string | null;
+  locationCode?: string | null;
+  productGroup?: string | null;
+  lastSoldDate?: Date | string | null;
 }
 
 export interface ScoredCandidate {

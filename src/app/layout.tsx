@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "IAM — Inventory Action Manager (Distribution)",
+  title: "IAM V1.5 — Inventory Action Manager (Decision Priority)",
   description:
-    "Identify what inventory action matters most now, assign ownership, track holdovers, and confirm results.",
+    "Weekly Decision Board for Active Priorities, OEC capacity, Waiting, WIP, and Deferred recommendations.",
 };
 
 export default function RootLayout({

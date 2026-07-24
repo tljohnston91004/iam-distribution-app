@@ -1,0 +1,17 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase2-closure
+> npx tsx scripts/run-phase2-architecture-closure-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P2C-PORT-01 — Generic upload creates EvidenceBatch via Port :: batch=eac79d57-ba1e-41ac-aa85-0dcba058ed4f inv=3
+PASS P2C-PORT-02 — Generic upload does not leave unlinked evidence (Port-only persistence) :: eac79d57-ba1e-41ac-aa85-0dcba058ed4f,eac79d57-ba1e-41ac-aa85-0dcba058ed4f,eac79d57-ba1e-41ac-aa85-0dcba058ed4f
+PASS P2C-IDEM — Repeated generic upload remains idempotent :: {"superseded":true,"batches":1,"rows":3}
+PASS P2C-PROV — Provenance complete on generic upload :: ManualSpreadsheet/generic_inv.xlsx
+PASS P2C-INT-REC — Evidence-generated calculation creates interim Recommendation :: interim=2 calc={"candidateCount":3,"featuredCount":2,"holdoverCount":0,"interimRecommendationCount":2,"sd17EnrichedModuleCount":1,"sd17SkippedDuplicateCount":1,"scoredCount":3,"scoringProfileId":"interim_v1_cash_led","presentationLanes":{"active_priority":["6b03084c-180a-452f-b13d-198cb6817ab8","e883941e-4059-4aca-a50a-981570fa3cac"],"waiting_activation":["8400f85f-623c-41be-a46f-5fb421ed5cfb"],"top_2":["6b03084c-180a-452f-b13d-198cb6817ab8","e883941e-4059-4aca-a50a-981570fa3cac"],"emergency":[],"holdover":[],"deferred":[],"managed_backlog":["8400f85f-623c-41be-a46f-5fb421ed5cfb"],"completed_presentation":[],"archived_history":[]}}
+PASS P2C-NO-ACTION — New calculation does not create a new legacy Action :: actions before=0 after=0 candidates=0
+PASS P2C-SD17 — SD-17 consolidation prevents duplicate opportunities :: dup=none moduleA=e883941e-4059-4aca-a50a-981570fa3cac interimA=none enriched=1
+PASS P2C-AUTH — Module Recommendations remain authoritative :: {"title":"Module authoritative trapped cash","cash":9999,"refs":"[{\"evidenceBatchId\":\"eac79d57-ba1e-41ac-aa85-0dcba058ed4f\"},{\"evidenceBatchId\":\"99cd5396-8939-490a-bb7d-0e6dd1657be7\"}]"}
+PASS P2C-TOP2 — Interim Recommendations carry presentation (active_priority) after rank :: top2=1
+
+9/9 passed

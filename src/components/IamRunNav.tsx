@@ -27,9 +27,9 @@ export function IamRunNav({
 
   return (
     <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
-      {link("dashboard", `/runs/${runId}`, "Management Dashboard")}
-      {link("assigned", `/runs/${runId}/assigned`, "My Assigned Actions")}
-      {link("archive", `/runs/${runId}/archive`, "Completed Archive")}
+      {link("dashboard", `/runs/${runId}`, "Decision Board")}
+      {link("assigned", `/runs/${runId}/assigned`, "My Assigned")}
+      {link("archive", `/runs/${runId}/archive`, "Archive / History")}
     </nav>
   );
 }

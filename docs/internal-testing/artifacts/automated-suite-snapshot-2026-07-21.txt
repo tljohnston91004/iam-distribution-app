@@ -1,0 +1,56 @@
+﻿IAM V1.5 Automated Suite Snapshot
+Timestamp: 2026-07-21 16:58:24 -07:00
+Machine: TERRY-PC
+Repo: C:\Users\Terry Johnston\Desktop\iam-distribution-app
+
+Environment
+-----------
+data\iam.db: EXISTS
+  Path: C:\Users\Terry Johnston\Desktop\iam-distribution-app\data\iam.db
+  Size: 19849216 bytes (18.93 MB)
+.env DATABASE_URL: file:../data/iam.db
+
+Suite Results
+-------------
+Suite                        Status  ExitCode  Passed  Failed  Total
+test:phase1-inbound          PASS    0         8       0       8
+test:phase2-keystroke        PASS    0         16      0       16
+test:phase2-closure          PASS    0         9       0       9
+test:phase3-lifecycle        PASS    0         14      0       14
+test:phase3-closure          PASS    0         7       0       7
+test:phase4-scoring          PASS    0         14      0       14
+test:phase5-board            PASS    0         8       0       8
+test:phase5a-experience      PASS    0         9       0       9
+
+TOTALS: 8/8 suites PASS | 85/85 tests PASS | 0 FAIL | all exit codes 0
+
+Failures
+--------
+(none)
+
+Keystroke sample paths (primary)
+--------------------------------
+C:\Keystrok\SCBSRSE3.XLS
+C:\Keystrok\INVENTORYPOSITION.XLS
+C:\Keystrok\TRUEDEMANDREPLENISHMENT.XLS
+C:\Keystrok\TRUEDEMANDREPLENISHMENT-STANDARD.XLS
+C:\Keystrok\TRUEDEMANDREPLENISHMENT-MATRIX.XLS
+C:\Keystrok\TRUEDEMANDCLASSIFICATION.XLS
+C:\Keystrok\TRUEDEMANDCLASSIFICATION-STANDARD.XLS
+C:\Keystrok\TRUEDEMANDCLASSIFICATION-MATRIX.XLS
+C:\Keystrok\TRUEDEMANDREPLISHMENT.XLS
+C:\Keystrok\TRUEDEMANDREPLISHMENT-STANDARD.XLS
+C:\Users\Terry Johnston\Desktop\01_Source_Exports_From_Keystroke\INVENTORYPOSITION.csv
+C:\Users\Terry Johnston\Desktop\01_Source_Exports_From_Keystroke\RSETRUEDEMAND.csv
+C:\Users\Terry Johnston\Desktop\RSE\INVENTORYPOSITION.XLS
+C:\Users\Terry Johnston\Desktop\RSE\RSETRUEDEMAND.XLS
+C:\Users\Terry Johnston\Desktop\RSE\Syd RSE Map\INVENTORYPOSITION.xls
+C:\Users\Terry Johnston\Desktop\RSE\Syd RSE Map\RSETRUEDEMAND.xls
+C:\Users\Terry Johnston\Desktop\Decision Priority Documentation\01- Product Development\RSE\RSE.Inventoryposition.csv
+C:\Users\Terry Johnston\Desktop\Decision Priority Documentation\01- Product Development\RSE\RSE.truedemand.csv
+
+Notes
+-----
+- C:\Keystrok listing produced 9250 paths (full Keystroke install tree).
+- Documents: no SCBSRSE3/TRUEDEMAND/INVENTORYPOSITION matches in first search pass.
+- docs\internal-testing\samples\ ensured present.

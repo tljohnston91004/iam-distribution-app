@@ -9,7 +9,7 @@ export default async function Dashboard() {
     orderBy: { createdAt: "desc" },
     include: {
       company: true,
-      _count: { select: { actions: true, dataGaps: true } },
+      _count: { select: { recommendations: true, dataGaps: true } },
     },
   });
 
@@ -18,12 +18,12 @@ export default async function Dashboard() {
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
         <div>
           <p style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: 1, fontSize: 12, margin: 0 }}>
-            DPOS-Distribution · V1.0
+            Decision Priority · IAM Version 1.5
           </p>
           <h1 style={{ fontSize: 30, margin: "6px 0" }}>Inventory Action Manager</h1>
-          <p style={{ color: "var(--muted)", maxWidth: 620, margin: 0 }}>
-            What inventory action matters most now, who owns it, and how do we keep current work
-            and completed history clearly separated? Sibling to RSE and IFM.
+          <p style={{ color: "var(--muted)", maxWidth: 640, margin: 0 }}>
+            Weekly Decision Board for Active Priorities, capacity (OEC), Waiting, WIP, and Deferred —
+            what to commit this week, who owns it, and what waits.
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
@@ -52,13 +52,16 @@ export default async function Dashboard() {
               whiteSpace: "nowrap",
             }}
           >
-            + New IAM Run
+            + New Review Cycle
           </Link>
         </div>
       </header>
 
       <section style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: 18 }}>Weekly action runs</h2>
+        <h2 style={{ fontSize: 18 }}>Review Cycles · Decision Boards</h2>
+        <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
+          Open a cycle to use the Decision Board (Summary, OEC, Active Priorities, and management actions).
+        </p>
 
         {runs.length === 0 ? (
           <div
@@ -71,7 +74,8 @@ export default async function Dashboard() {
               color: "var(--muted)",
             }}
           >
-            No runs yet. Create a weekly IAM run to begin upload, scoring, and action-queue review.
+            No Review Cycles yet. Create one to upload Keystroke evidence, score Recommendations, and open the
+            Decision Board.
           </div>
         ) : (
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
@@ -99,8 +103,8 @@ export default async function Dashboard() {
                   {shortDate(run.reviewWeekStart)} → {shortDate(run.reviewWeekEnd)}
                 </div>
                 <div style={{ fontSize: 13 }}>
-                  <span style={{ color: "var(--muted)" }}>Actions</span>
-                  <div>{run._count.actions}</div>
+                  <span style={{ color: "var(--muted)" }}>Recommendations</span>
+                  <div>{run._count.recommendations}</div>
                 </div>
                 <div style={{ fontSize: 13, textAlign: "right" }}>
                   <span
@@ -115,6 +119,7 @@ export default async function Dashboard() {
                   >
                     {run.runStatus}
                   </span>
+                  <div style={{ marginTop: 6, fontSize: 11, color: "var(--accent)" }}>Open Decision Board →</div>
                 </div>
               </Link>
             ))}

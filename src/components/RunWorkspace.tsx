@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usd } from "@/lib/format";
 import type { RunBanner } from "@/lib/iam/banners";
+import { KeystrokeUploadPanel } from "@/components/KeystrokeUploadPanel";
 
 type ActionRow = {
   id: string;
@@ -97,13 +98,41 @@ export function RunWorkspace({
     router.refresh();
   }
 
+  async function approveEvidence() {
+    setBusy(true);
+    setMsg(null);
+    setMsgIsError(false);
+    try {
+      const res = await fetch(`/api/runs/${run.id}/evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", performedBy: "operator" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsgIsError(true);
+        setMsg(data.error ?? "Approve evidence failed");
+        return;
+      }
+      setMsg("Evidence approved for analysis — Calculate is unlocked");
+      router.refresh();
+    } catch (err) {
+      setMsgIsError(true);
+      setMsg(err instanceof Error ? err.message : "Could not reach server");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function calculate() {
     setBusy(true);
     setMsg(null);
+    setMsgIsError(false);
     const res = await fetch(`/api/runs/${run.id}/calculate`, { method: "POST" });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
+      setMsgIsError(true);
       setMsg(data.error ?? "Calculate failed");
       return;
     }
@@ -255,6 +284,17 @@ export function RunWorkspace({
         </p>
       )}
 
+      <KeystrokeUploadPanel
+        runId={run.id}
+        onMerged={(c) =>
+          setCounts({
+            inventorySnapshots: c.inventory,
+            demandHistory: c.demand,
+            incomingSupply: c.supply,
+          })
+        }
+      />
+
       <section
         style={{
           marginTop: 20,
@@ -264,8 +304,8 @@ export function RunWorkspace({
           alignItems: "center",
         }}
       >
-        <label style={{ ...primaryBtn, display: "inline-block" }}>
-          Upload inventory / demand file
+        <label style={{ ...btn, display: "inline-block" }}>
+          Upload inventory / demand file (simple)
           <input
             type="file"
             accept=".csv,.xlsx,.xls"
@@ -277,6 +317,9 @@ export function RunWorkspace({
             }}
           />
         </label>
+        <button type="button" style={btn} disabled={busy} onClick={approveEvidence}>
+          Approve evidence
+        </button>
         <button type="button" style={primaryBtn} disabled={busy} onClick={calculate}>
           Calculate & rank
         </button>
@@ -290,6 +333,11 @@ export function RunWorkspace({
           Load validation scenarios
         </button>
       </section>
+      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8, maxWidth: 720 }}>
+        Prefer the <strong>Keystroke upload checklist</strong> above for multi-file Matrix + Standard.
+        After merge or upload, <strong>Approve evidence</strong> before Calculate. All sources
+        (customer upload, Keystroke, RSE, Data Hub) share one ingestion path.
+      </p>
 
       <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>
         Intake: {counts.inventorySnapshots} inventory · {counts.demandHistory} demand ·{" "}

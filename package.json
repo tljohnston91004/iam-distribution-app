@@ -13,7 +13,19 @@
     "postinstall": "prisma generate",
     "docs:extract": "node scripts/extract-iam-docs.mjs",
     "validate": "npx tsx scripts/run-validation.ts",
-    "validate:unit": "npx tsx scripts/run-validation.ts --unit-only"
+    "validate:unit": "npx tsx scripts/run-validation.ts --unit-only",
+    "test:phase1-inbound": "npx tsx scripts/run-phase1-inbound-tests.ts",
+    "test:phase2-keystroke": "npx tsx scripts/run-phase2-keystroke-adapter-tests.ts",
+    "test:phase2-closure": "npx tsx scripts/run-phase2-architecture-closure-tests.ts",
+    "test:phase3-lifecycle": "npx tsx scripts/run-phase3-lifecycle-tests.ts",
+    "test:phase3-closure": "npx tsx scripts/run-phase3-closure-tests.ts",
+    "test:phase4-scoring": "npx tsx scripts/run-phase4-scoring-tests.ts",
+    "test:phase5-board": "npx tsx scripts/run-phase5-board-tests.ts",
+    "test:phase5a-experience": "npx tsx scripts/run-phase5a-experience-tests.ts",
+    "test:unified-ingestion": "npx tsx scripts/run-unified-ingestion-tests.ts",
+    "test:classification-segment": "npx tsx scripts/run-classification-segment-tests.ts",
+    "test:prescribed-action-plan": "npx tsx scripts/run-prescribed-action-plan-tests.ts",
+    "test:revised-scoring": "npx tsx scripts/run-revised-scoring-tests.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

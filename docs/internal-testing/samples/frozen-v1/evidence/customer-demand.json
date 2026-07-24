@@ -1,0 +1,34 @@
+{
+  "_freeze": "IAM-V15-IV-EVIDENCE-2026-07-23",
+  "_purpose": "Frozen customer-upload demand companion for RSE/Hub combo (IT-20) and Hub-only demand (IT-19)",
+  "sourceSystem": "CustomerUpload",
+  "sourceReportType": "demand_history",
+  "sourceFileName": "frozen-customer-demand.json",
+  "evidenceBatchKey": "frozen:customer:demand:v1",
+  "items": [
+    {
+      "skuOrItemId": "IV-RSE-01",
+      "periodCode": "W13",
+      "unitsSold": 12,
+      "salesDollars": 150,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    },
+    {
+      "skuOrItemId": "IV-HUB-01",
+      "periodCode": "W13",
+      "unitsSold": 8,
+      "salesDollars": 144,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    },
+    {
+      "skuOrItemId": "IV-SHARED-01",
+      "periodCode": "W13",
+      "unitsSold": 5,
+      "salesDollars": 50,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    }
+  ]
+}

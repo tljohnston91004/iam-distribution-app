@@ -1,0 +1,28 @@
+{
+  "_freeze": "IAM-V15-IV-EVIDENCE-2026-07-23",
+  "_purpose": "Frozen RSE Evidence Package fixture for IT-18 / IT-20 (API submit; not Keystroke XLS)",
+  "sourceSystem": "RSE",
+  "sourceReportType": "inventory_position",
+  "sourceFileName": "frozen-rse-inventory.json",
+  "evidenceBatchKey": "frozen:rse:inventory:v1",
+  "items": [
+    {
+      "skuOrItemId": "IV-RSE-01",
+      "description": "Frozen RSE inventory SKU",
+      "quantityOnHand": 40,
+      "availableQoh": 36,
+      "quantityBasisUsed": "available_qoh",
+      "unitCost": 12.5,
+      "dataConfidence": "High Confidence",
+      "entityEligibility": "rankable"
+    },
+    {
+      "skuOrItemId": "IV-SHARED-01",
+      "description": "Shared SKU for priority conflict tests",
+      "quantityOnHand": 80,
+      "unitCost": 10,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    }
+  ]
+}

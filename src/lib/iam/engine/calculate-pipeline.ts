@@ -1,7 +1,29 @@
+/**
+ * IAM calculate pipeline — Phase 4 scoring/presentation separation.
+ *
+ * 1) Identify interim candidates from evidence (Port upsert + SD-17)
+ * 2) Score all Recommendations via scoring service (interim profile)
+ * 3) Assign Board presentation lanes (independent of lifecycle mutation)
+ *
+ * Does not create new legacy Action / ActionCandidate records.
+ * No Keystroke adapter imports (ADR-IAM-001).
+ */
+
 import { prisma } from "@/lib/db";
-import { FEATURED_PRIORITY_COUNT } from "@/lib/iam/constants";
-import { rankNewPriorityCandidates, identifyCandidatesForSku, buildSkuEvidence } from "./ranking";
-import type { IfmSignalFlags, RseSignalFlags } from "../types";
+import {
+  upsertRecommendations,
+  type RecommendationPackageItem,
+} from "@/lib/iam/inbound";
+import { assertEvidenceApprovedForAnalysis } from "@/lib/iam/ingestion";
+import { scoreAndPresentReviewCycle } from "@/lib/iam/presentation";
+import { attachPrescribedActionPlans, type SkuActionInput } from "@/lib/iam/actions";
+import { identifyCandidatesForSku, buildSkuEvidence, rankAllPriorityCandidates } from "./ranking";
+import {
+  applySegmentDoubleCountGuard,
+  identifySegmentCandidates,
+  type SkuEvidenceWithDims,
+} from "./segments";
+import type { IfmSignalFlags, RseSignalFlags, ScoredCandidate } from "../types";
 
 function parseSignalPayload(json: string | null | undefined): Record<string, unknown> {
   if (!json) return {};
@@ -38,6 +60,8 @@ function ifmFlagsFromSignals(signals: { signalType: string; payloadJson: string 
 }
 
 export async function runIamCalculatePipeline(iamRunId: string) {
+  await assertEvidenceApprovedForAnalysis(iamRunId);
+
   const run = await prisma.iamRun.findUnique({
     where: { id: iamRunId },
     include: {
@@ -51,8 +75,12 @@ export async function runIamCalculatePipeline(iamRunId: string) {
 
   if (!run) throw new Error("Run not found");
 
+  // Unified ingestion: only reconciled winners feed the analytical model.
+  const selectedInventory = run.inventorySnapshots.filter((i) => i.selectedForAnalysis);
+  const selectedDemand = run.demandHistory.filter((d) => d.selectedForAnalysis);
+
   const demandBySku = new Map<string, { unitsSold: number; grossSalesDollars: number; dataConfidence: string }>();
-  for (const d of run.demandHistory) {
+  for (const d of selectedDemand) {
     const existing = demandBySku.get(d.skuOrItemId);
     if (existing) {
       existing.unitsSold += d.unitsSold;
@@ -83,14 +111,42 @@ export async function runIamCalculatePipeline(iamRunId: string) {
     }
   }
 
-  const allScored = [];
+  const skuEvidenceList: SkuEvidenceWithDims[] = [];
+  const skuCandidates: ScoredCandidate[] = [];
+  const evidenceBySku = new Map<string, SkuActionInput>();
 
-  for (const inv of run.inventorySnapshots) {
+  for (const inv of selectedInventory) {
+    const usableQty =
+      inv.quantityBasisUsed === "available_qoh" && inv.availableQoh != null
+        ? inv.availableQoh
+        : inv.quantityOnHand;
+
+    // Standalone without classification: keep operable; soften confidence when class missing.
+    let dataConfidence = inv.dataConfidence;
+    if (!inv.classification && dataConfidence === "High Confidence") {
+      dataConfidence = "Medium Confidence";
+    } else if (!inv.classification && dataConfidence === "Medium Confidence") {
+      // leave Medium — optional class does not block analysis
+    }
+
     const demand = demandBySku.get(inv.skuOrItemId);
     const supply = supplyBySku.get(inv.skuOrItemId);
     const evidence = buildSkuEvidence(
       inv.skuOrItemId,
-      inv,
+      {
+        description: inv.description,
+        quantityOnHand: usableQty,
+        cost: inv.cost,
+        inventoryValue: inv.inventoryValue,
+        dataConfidence,
+        classification: inv.classification,
+        vendorName: inv.vendorName,
+        category: inv.category,
+        department: inv.department,
+        locationCode: inv.locationCode,
+        productGroup: inv.productGroup,
+        lastSoldDate: inv.lastSoldDate,
+      },
       demand,
       supply
         ? {
@@ -99,109 +155,137 @@ export async function runIamCalculatePipeline(iamRunId: string) {
           }
         : undefined
     );
+    skuEvidenceList.push(evidence);
     const rse = rseFlagsFromSignals(rseBySku.get(inv.skuOrItemId) ?? []);
     const ifm = ifmFlagsFromSignals(ifmBySku.get(inv.skuOrItemId) ?? []);
-    allScored.push(...identifyCandidatesForSku(evidence, rse, ifm));
+    evidenceBySku.set(inv.skuOrItemId, {
+      ...evidence,
+      lastSoldDate: inv.lastSoldDate,
+      openPurchaseOrders: supply?.openOrderQuantity ?? null,
+      rseMinMaxIssue: Boolean(rse.minMaxIssueFlag),
+      rseOverbuyRisk: Boolean(rse.replenishmentOverbuyRisk),
+    });
+    skuCandidates.push(...identifyCandidatesForSku(evidence, rse, ifm));
   }
 
-  const ranked = rankNewPriorityCandidates(allScored);
-  const topFeatured = ranked.slice(0, FEATURED_PRIORITY_COUNT);
+  const segmentCandidates = identifySegmentCandidates(skuEvidenceList);
+  const guardedSku = applySegmentDoubleCountGuard(skuCandidates, segmentCandidates);
+  const withPlans = attachPrescribedActionPlans(
+    [...segmentCandidates, ...guardedSku],
+    evidenceBySku
+  );
+  const allScored = withPlans;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.actionCandidate.deleteMany({ where: { iamRunId } });
-    await tx.action.deleteMany({
-      where: {
-        iamRunId,
-        workflowState: { in: ["Candidate", "Featured"] },
-        priorityCategory: "new_priority",
+  // Phase 4: do not drop confidence-suppressed candidates before Port upsert.
+  // Rank by total financial + operational business impact (segment or SKU).
+  // Cap Board volume: keep all segments, then fill remaining slots with top SKU issues.
+  const rankedAll = rankAllPriorityCandidates(allScored);
+  const segmentsOnly = rankedAll.filter((c) => c.detail?.analysisGrain === "segment");
+  const skusOnly = rankedAll.filter((c) => c.detail?.analysisGrain !== "segment");
+  const MAX_INTERIM_BOARD = 80;
+  const skuSlots = Math.max(0, MAX_INTERIM_BOARD - segmentsOnly.length);
+  const ranked = [...segmentsOnly, ...skusOnly.slice(0, skuSlots)];
+
+
+  const evidenceBatchIds = [
+    ...new Set(
+      [
+        ...selectedInventory.map((i) => i.evidenceBatchId),
+        ...selectedDemand.map((d) => d.evidenceBatchId),
+      ].filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  await prisma.recommendation.deleteMany({
+    where: { iamRunId, generationPath: "interim_evidence" },
+  });
+
+  await prisma.actionCandidate.deleteMany({ where: { iamRunId } });
+  await prisma.action.deleteMany({
+    where: {
+      iamRunId,
+      workflowState: { in: ["Candidate", "Featured"] },
+      priorityCategory: "new_priority",
+    },
+  });
+
+  // Presentation deferred to presentation service — upsert as managed_backlog only.
+  const packageItems: RecommendationPackageItem[] = ranked.map((c, i) => {
+    const isSegment = c.detail?.analysisGrain === "segment";
+    return {
+      sourceModule: "IAM",
+      generationPath: "interim_evidence" as const,
+      opportunityKey: `${c.skuOrItemId}|${c.actionType}`,
+      skuOrItemId: isSegment ? null : c.skuOrItemId,
+      analysisGrain: isSegment ? ("segment" as const) : ("sku" as const),
+      segmentType: isSegment ? String(c.detail.segmentType ?? "") : null,
+      segmentKey: isSegment ? String(c.detail.segmentKey ?? "") : null,
+      affectedSkuCount: isSegment ? Number(c.detail.affectedSkuCount ?? 0) : null,
+      recommendationType: c.actionType,
+      title: c.candidateTitle,
+      confidence: c.confidenceLevel,
+      estimatedCashImpact: c.estimatedCashImpact ?? null,
+      estimatedFinancialImpact: c.estimatedCashImpact ?? null,
+      explainability: {
+        sourceType: c.sourceType,
+        evidenceStrength: c.evidenceStrength,
+        detail: c.detail,
+        serviceRiskScore: c.serviceRiskScore,
+        interim: true,
+        generationPath: "interim_evidence",
+        candidateDiscoveryScore: c.priorityScore,
+        suppressedFlagAtDiscovery: c.suppressedFlag,
+        analysisGrain: isSegment ? "segment" : "sku",
+        memberSkus: c.detail.memberSkus ?? null,
+        doubleCountGuard: c.detail.doubleCountGuard ?? null,
+        prescribedActionPlan: c.detail.prescribedActionPlan ?? null,
+        recommendedManagementAction: c.detail.recommendedManagementAction ?? null,
+        dataQualityWarning: c.detail.dataQualityWarning ?? null,
       },
-    });
+      evidenceRefs: evidenceBatchIds.map((id) => ({ evidenceBatchId: id })),
+      presentationCategory: "managed_backlog" as const,
+      presentationRank: i + 1,
+    };
+  });
 
-    const candidateRecords = await Promise.all(
-      ranked.map((c, i) =>
-        tx.actionCandidate.create({
-          data: {
-            iamRunId,
-            skuOrItemId: c.skuOrItemId,
-            sourceType: c.sourceType,
-            actionType: c.actionType,
-            candidateTitle: c.candidateTitle,
-            evidenceStrength: c.evidenceStrength,
-            estimatedCashImpact: c.estimatedCashImpact,
-            serviceOperationalRisk: c.serviceOperationalRisk,
-            serviceRiskScore: c.serviceRiskScore,
-            cashImpactScore: c.cashImpactScore,
-            priorityScore: c.priorityScore,
-            priorityCategory: c.priorityCategory,
-            readinessLabel: c.readinessLabel,
-            confidenceLevel: c.confidenceLevel,
-            suppressedFlag: c.suppressedFlag,
-            rankedPosition: i + 1,
-            detailJson: JSON.stringify(c.detail),
-          },
-        })
-      )
-    );
+  const upsertResult = await upsertRecommendations({
+    reviewCycleId: iamRunId,
+    recommendations: packageItems,
+    performedBy: "calculate-pipeline",
+  });
 
-    const featuredIds = new Set(
-      topFeatured.map((t) => `${t.skuOrItemId}:${t.actionType}`)
-    );
+  const presented = await scoreAndPresentReviewCycle(iamRunId);
 
-    for (const rec of candidateRecords) {
-      const key = `${rec.skuOrItemId}:${rec.actionType}`;
-      const isFeatured = featuredIds.has(key) && !rec.suppressedFlag;
-      const slot = isFeatured
-        ? topFeatured.findIndex((t) => `${t.skuOrItemId}:${t.actionType}` === key) + 1
-        : null;
+  const hasInventory = selectedInventory.length > 0;
+  const hasDemand = selectedDemand.length > 0;
+  let readiness = "Not Ready";
+  if (hasInventory && hasDemand) readiness = ranked.length ? "Ready" : "Partial";
+  else if (hasInventory || hasDemand) readiness = "Partial";
 
-      if (!isFeatured && rec.suppressedFlag) continue;
+  await prisma.iamRun.update({
+    where: { id: iamRunId },
+    data: { readinessStatus: readiness, runStatus: "In Review" },
+  });
 
-      await tx.action.create({
-        data: {
-          iamRunId,
-          actionCandidateId: rec.id,
-          skuOrItemId: rec.skuOrItemId,
-          actionTitle: rec.candidateTitle,
-          actionType: rec.actionType,
-          actionStrength: JSON.parse(rec.detailJson ?? "{}").actionStrength ?? "Monitor",
-          priorityScore: rec.priorityScore,
-          priorityCategory: "new_priority",
-          workflowState: isFeatured ? "Featured" : "Candidate",
-          featuredSlot: slot,
-          firstSurfacedDate: isFeatured ? new Date() : null,
-          confidenceLevel: rec.confidenceLevel,
-          originalEstimatedImpact: rec.estimatedCashImpact ?? undefined,
-          visibilityClass: "Management Visible",
-          detailJson: rec.detailJson,
-        },
-      });
-    }
-
-    const hasInventory = run.inventorySnapshots.length > 0;
-    const hasDemand = run.demandHistory.length > 0;
-    let readiness = "Not Ready";
-    if (hasInventory && hasDemand) readiness = ranked.length ? "Ready" : "Partial";
-    else if (hasInventory || hasDemand) readiness = "Partial";
-
-    await tx.iamRun.update({
-      where: { id: iamRunId },
-      data: { readinessStatus: readiness, runStatus: "In Review" },
-    });
-
-    await tx.changeLog.create({
-      data: {
-        iamRunId,
-        entityType: "IamRun",
-        entityId: iamRunId,
-        action: "calculated",
-        detail: `${ranked.length} candidates, ${topFeatured.length} featured`,
-      },
-    });
+  await prisma.changeLog.create({
+    data: {
+      iamRunId,
+      entityType: "IamRun",
+      entityId: iamRunId,
+      action: "calculated_scored_presented",
+      detail: `interimSubmitted=${packageItems.length} created=${upsertResult.createdCount} updated=${upsertResult.updatedCount} sd17Enriched=${upsertResult.enrichedModuleCount} skippedDup=${upsertResult.skippedDuplicateInterimCount} scored=${presented.scoredCount} profile=${presented.scoringProfileId} active=${presented.lanes.active_priority.length} holdover=${presented.lanes.holdover.length}`,
+    },
   });
 
   return {
     candidateCount: ranked.length,
-    featuredCount: topFeatured.length,
-    holdoverCount: run.actions.length,
+    featuredCount: presented.lanes.active_priority.length,
+    holdoverCount: presented.lanes.holdover.length + run.actions.length,
+    interimRecommendationCount: upsertResult.createdCount + upsertResult.updatedCount,
+    sd17EnrichedModuleCount: upsertResult.enrichedModuleCount,
+    sd17SkippedDuplicateCount: upsertResult.skippedDuplicateInterimCount,
+    scoredCount: presented.scoredCount,
+    scoringProfileId: presented.scoringProfileId,
+    presentationLanes: presented.lanes,
   };
 }

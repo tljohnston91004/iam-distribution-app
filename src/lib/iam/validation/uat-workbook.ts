@@ -9,7 +9,11 @@ export function uatWorkbookPath(): string {
 }
 
 export function isUatWorkbookPresent(): boolean {
-  return fs.existsSync(uatWorkbookPath());
+  try {
+    return fs.existsSync(uatWorkbookPath());
+  } catch {
+    return false;
+  }
 }
 
 export interface UatWorkbookSummary {
@@ -18,6 +22,7 @@ export interface UatWorkbookSummary {
   sheetNames: string[];
   rowCount: number;
   scenarioIdsFound: string[];
+  error?: string;
 }
 
 /** Read UAT workbook metadata — formal pass/fail control file (doc 08). */
@@ -27,28 +32,41 @@ export function readUatWorkbookSummary(): UatWorkbookSummary {
     return { present: false, path: wbPath, sheetNames: [], rowCount: 0, scenarioIdsFound: [] };
   }
 
-  const wb = XLSX.readFile(wbPath);
-  let rowCount = 0;
-  const scenarioIdsFound: string[] = [];
+  try {
+    // Prefer buffer read — XLSX.readFile can fail under Next.js server runtime.
+    const buffer = fs.readFileSync(wbPath);
+    const wb = XLSX.read(buffer, { type: "buffer" });
+    let rowCount = 0;
+    const scenarioIdsFound: string[] = [];
 
-  for (const name of wb.SheetNames) {
-    const sheet = wb.Sheets[name];
-    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
-    rowCount += rows.length;
-    for (const row of rows) {
-      for (const val of Object.values(row)) {
-        const m = String(val).match(/SC-\d{3}/);
-        if (m && !scenarioIdsFound.includes(m[0])) scenarioIdsFound.push(m[0]);
+    for (const name of wb.SheetNames) {
+      const sheet = wb.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+      rowCount += rows.length;
+      for (const row of rows) {
+        for (const val of Object.values(row)) {
+          const m = String(val).match(/SC-\d{3}/);
+          if (m && !scenarioIdsFound.includes(m[0])) scenarioIdsFound.push(m[0]);
+        }
       }
     }
-  }
 
-  scenarioIdsFound.sort();
-  return {
-    present: true,
-    path: wbPath,
-    sheetNames: wb.SheetNames,
-    rowCount,
-    scenarioIdsFound,
-  };
+    scenarioIdsFound.sort();
+    return {
+      present: true,
+      path: wbPath,
+      sheetNames: wb.SheetNames,
+      rowCount,
+      scenarioIdsFound,
+    };
+  } catch (err) {
+    return {
+      present: true,
+      path: wbPath,
+      sheetNames: [],
+      rowCount: 0,
+      scenarioIdsFound: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

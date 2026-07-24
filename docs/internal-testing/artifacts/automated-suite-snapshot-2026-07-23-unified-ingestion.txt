@@ -1,0 +1,19 @@
+IAM V1.5 automated suite snapshot — 2026-07-23 (unified ingestion correction)
+
+Suites: 9/9 PASS
+Tests: 94/94 PASS
+
+- test:unified-ingestion     9/9
+- test:phase1-inbound        8/8
+- test:phase2-keystroke     16/16
+- test:phase2-closure        9/9
+- test:phase3-lifecycle     14/14
+- test:phase3-closure        7/7
+- test:phase4-scoring       14/14
+- test:phase5-board          8/8
+- test:phase5a-experience    9/9
+
+Failures: 0
+
+Internal Validation scenario execution: pause lifted; awaiting PO authorization to begin IT-01…IT-22.
+Design Partner Validation: has not begun.

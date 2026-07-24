@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import {
+  approveEvidenceForAnalysis,
+  submitEvidenceThroughUnifiedIngestion,
+} from "@/lib/iam/ingestion";
 import { assessRunReadiness } from "@/lib/iam/intake";
 
 /** Sample SKUs aligned with doc 07 validation scenarios (trapped cash + stock risk). */
@@ -17,45 +20,50 @@ export async function POST(req: Request) {
     const runId = body.runId as string;
     if (!runId) return NextResponse.json({ error: "runId required" }, { status: 400 });
 
-    await prisma.inventorySnapshot.deleteMany({ where: { iamRunId: runId } });
-    await prisma.demandHistory.deleteMany({ where: { iamRunId: runId } });
-    await prisma.incomingSupply.deleteMany({ where: { iamRunId: runId } });
-
-    for (const row of SAMPLE_INVENTORY) {
-      await prisma.inventorySnapshot.create({
-        data: {
-          iamRunId: runId,
-          skuOrItemId: row.sku,
-          description: row.desc,
-          quantityOnHand: row.qoh,
-          cost: row.cost,
-          inventoryValue: row.qoh * row.cost,
-          dataConfidence: "Medium Confidence",
-        },
-      });
-      await prisma.demandHistory.create({
-        data: {
-          iamRunId: runId,
-          skuOrItemId: row.sku,
-          periodLabel: "13_weeks",
-          unitsSold: row.units,
-          grossSalesDollars: row.sales,
-          dataConfidence: "Medium Confidence",
-        },
-      });
-    }
-
-    await prisma.incomingSupply.create({
-      data: {
-        iamRunId: runId,
-        skuOrItemId: "SKU-200",
-        backorderQuantity: 24,
-        openOrderQuantity: 0,
+    await submitEvidenceThroughUnifiedIngestion({
+      reviewCycleId: runId,
+      evidenceBatchKey: `sample:inventory:${runId}`,
+      sourceSystem: "CustomerUpload",
+      sourceReportType: "inventory_position",
+      sourceFileName: "sample-inventory.json",
+      items: SAMPLE_INVENTORY.map((row) => ({
+        skuOrItemId: row.sku,
+        description: row.desc,
+        quantityOnHand: row.qoh,
+        unitCost: row.cost,
         dataConfidence: "Medium Confidence",
-      },
+      })),
+      performedBy: "sample-seed",
     });
 
-    await prisma.dataGap.deleteMany({ where: { iamRunId: runId } });
+    await submitEvidenceThroughUnifiedIngestion({
+      reviewCycleId: runId,
+      evidenceBatchKey: `sample:demand:${runId}`,
+      sourceSystem: "CustomerUpload",
+      sourceReportType: "demand_history",
+      sourceFileName: "sample-demand.json",
+      items: SAMPLE_INVENTORY.map((row) => ({
+        skuOrItemId: row.sku,
+        description: row.desc,
+        periodCode: "W13",
+        unitsSold: row.units,
+        salesDollars: row.sales,
+        dataConfidence: "Medium Confidence",
+      })),
+      performedBy: "sample-seed",
+    });
+
+    await submitEvidenceThroughUnifiedIngestion({
+      reviewCycleId: runId,
+      evidenceBatchKey: `sample:supply:${runId}`,
+      sourceSystem: "CustomerUpload",
+      sourceReportType: "incoming_supply",
+      sourceFileName: "sample-supply.json",
+      items: [{ skuOrItemId: "SKU-200", backorderQuantity: 24, openOrderQty: 0 }],
+      performedBy: "sample-seed",
+    });
+
+    await approveEvidenceForAnalysis(runId, "sample-seed");
 
     const readiness = await assessRunReadiness(runId);
 
@@ -68,9 +76,13 @@ export async function POST(req: Request) {
       demandCount: SAMPLE_INVENTORY.length,
       supplyCount: 1,
       readiness,
+      evidenceApprovalStatus: "approved",
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Seed failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Seed failed" },
+      { status: 500 }
+    );
   }
 }

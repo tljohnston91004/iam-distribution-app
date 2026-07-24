@@ -1,5 +1,6 @@
-// IAM — Inventory Action Manager (Distribution) V1.0
-// Stage 2 data model (doc 03). Enums: src/lib/iam/enums.ts
+// IAM — Inventory Action Manager (Distribution)
+// V1.0 Stage 2 base + V1.5 Phase 1 canonical inbound / Recommendation domain (ADR-IAM-001)
+// Enums: src/lib/iam/enums.ts — Review Cycle is physically IamRun until later rename migration.
 
 generator client {
   provider = "prisma-client-js"
@@ -16,6 +17,18 @@ model Company {
   businessType String?  @map("business_type")
   posSystem    String?  @map("pos_system")
   active       Boolean  @default(true) @map("active_status")
+  /// EEP / Blueprint — Organizational Execution Capability (concurrent active initiatives).
+  organizationalExecutionCapability Int @default(2) @map("organizational_execution_capability")
+  /// Advisory aging threshold in days (prompts only; never auto-mutates Recommendations).
+  recommendationAgingDays Int @default(14) @map("recommendation_aging_days")
+  /// Unified ingestion — which evidence channels may submit (standalone always usable when true).
+  enableStandaloneUpload Boolean @default(true) @map("enable_standalone_upload")
+  enableRseEvidence       Boolean @default(false) @map("enable_rse_evidence")
+  enableDataHub           Boolean @default(false) @map("enable_data_hub")
+  /// Revised scoring denominators (Decision Priority ratios). Null → calculation exception (no fabricated score).
+  trailing52WeekRevenue      Float? @map("trailing_52_week_revenue")
+  trailing12MonthGrossProfit Float? @map("trailing_12_month_gross_profit")
+  totalInventoryBookValue    Float? @map("total_inventory_book_value")
   createdAt    DateTime @default(now()) @map("created_at")
 
   runs IamRun[]
@@ -23,6 +36,7 @@ model Company {
   @@map("companies")
 }
 
+/// Review Cycle (IAM-007) — table name retained as iam_runs for V1.0 compatibility (Phase 1).
 model IamRun {
   id              String   @id @default(uuid()) @map("iam_run_id")
   companyId       String   @map("company_id")
@@ -33,8 +47,16 @@ model IamRun {
   reviewWeekEnd   DateTime @map("review_week_end")
   reviewCadence   String   @default("weekly") @map("review_cadence")
   runStatus       String   @default("Draft") @map("run_status")
-  cycleStatus     String   @default("Open") @map("cycle_status")
+  cycleStatus     String   @default("Open") @map("cycle_status") // Open | Locked | Closed
+  /// When set, governed Recommendation transitions are rejected for this Review Cycle (Phase 3).
+  cycleLockedAt   DateTime? @map("cycle_locked_at")
+  cycleLockedBy   String?  @map("cycle_locked_by")
   readinessStatus String   @default("Not Ready") @map("readiness_status")
+  /// Unified ingestion — evidence must be approved before Calculate / analysis.
+  /// draft | pending_approval | approved
+  evidenceApprovalStatus String @default("draft") @map("evidence_approval_status")
+  evidenceApprovedAt     DateTime? @map("evidence_approved_at")
+  evidenceApprovedBy     String?  @map("evidence_approved_by")
   runVersion      Int      @default(1) @map("run_version")
   parentRunId     String?  @map("parent_run_id")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -50,6 +72,13 @@ model IamRun {
   moduleSignals        ModuleSignal[]
   dataGaps             DataGap[]
   changeLogs           ChangeLog[]
+  uploadBatches        UploadBatch[]
+  evidenceBatches      EvidenceBatch[]
+  evidenceConflicts    EvidenceConflict[]
+  recommendations      Recommendation[]
+  governanceDecisions  GovernanceDecision[]
+  workflowEvents       WorkflowEvent[]
+  auditEvents          AuditEvent[]
 
   @@map("iam_runs")
 }
@@ -87,20 +116,39 @@ model FieldMapping {
 }
 
 model InventorySnapshot {
-  id              String   @id @default(uuid()) @map("inventory_snapshot_id")
-  iamRunId        String   @map("iam_run_id")
-  run             IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
-  skuOrItemId     String   @map("sku_or_item_id")
-  description     String?
-  quantityOnHand  Float    @map("quantity_on_hand")
-  cost            Float?
-  inventoryValue  Float?   @map("inventory_value")
-  classification  String?
-  itemStatus      String?  @map("item_status")
-  vendorName      String?  @map("vendor_name")
-  dataConfidence  String   @default("Medium Confidence") @map("data_confidence")
+  id                 String   @id @default(uuid()) @map("inventory_snapshot_id")
+  iamRunId           String   @map("iam_run_id")
+  run                IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId        String   @map("sku_or_item_id")
+  description        String?
+  quantityOnHand     Float    @map("quantity_on_hand")
+  availableQoh       Float?   @map("available_qoh")
+  quantityBasisUsed  String?  @map("quantity_basis_used") // available_qoh | on_hand (ADR-IAM-001 / SD-15)
+  cost               Float?
+  inventoryValue     Float?   @map("inventory_value")
+  classification     String?
+  itemStatus         String?  @map("item_status")
+  vendorName         String?  @map("vendor_name")
+  category           String?
+  department         String?
+  locationCode       String?  @map("location_code")
+  productGroup       String?  @map("product_group")
+  /// Which channel last supplied classification dimensions (Keystroke / RSE / DataHub / CustomerUpload).
+  classificationSource String? @map("classification_source")
+  dataConfidence     String   @default("Medium Confidence") @map("data_confidence")
+  entityEligibility  String   @default("rankable") @map("entity_eligibility") // rankable | excluded_non_entity
+  /// Unified reconciliation — only selected rows feed Calculate.
+  selectedForAnalysis Boolean @default(true) @map("selected_for_analysis")
+  winningSourceSystem String? @map("winning_source_system")
+  evidenceBatchId    String?  @map("evidence_batch_id")
+  evidenceBatch      EvidenceBatch? @relation(fields: [evidenceBatchId], references: [id], onDelete: SetNull)
+  openOrderQuantity  Float?   @map("open_order_quantity")
+  lastSoldDate       DateTime? @map("last_sold_date")
+  lastReceivedDate   DateTime? @map("last_received_date")
+  sourceRowRef       String?  @map("source_row_ref")
 
   @@index([iamRunId, skuOrItemId])
+  @@index([evidenceBatchId])
   @@map("inventory_snapshots")
 }
 
@@ -110,42 +158,298 @@ model DemandHistory {
   run                       IamRun  @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
   skuOrItemId               String  @map("sku_or_item_id")
   periodLabel               String  @map("period_label")
+  periodCode                String? @map("period_code") // e.g. W13 (ADR Evidence Package)
   unitsSold                 Float   @map("units_sold")
   grossSalesDollars         Float   @map("gross_sales_dollars")
   returnsOrNegativeMovement Float?  @map("returns_or_negative_movement")
   dataConfidence            String  @default("Medium Confidence") @map("data_confidence")
+  entityEligibility         String  @default("rankable") @map("entity_eligibility")
+  selectedForAnalysis       Boolean @default(true) @map("selected_for_analysis")
+  winningSourceSystem       String? @map("winning_source_system")
+  evidenceBatchId           String? @map("evidence_batch_id")
+  evidenceBatch             EvidenceBatch? @relation(fields: [evidenceBatchId], references: [id], onDelete: SetNull)
+  sourceRowRef              String? @map("source_row_ref")
 
   @@index([iamRunId, skuOrItemId])
+  @@index([evidenceBatchId])
   @@map("demand_history")
 }
 
 model ReceiptHistorySummary {
-  id                  String    @id @default(uuid()) @map("receipt_history_id")
-  iamRunId            String    @map("iam_run_id")
-  run                 IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
-  skuOrItemId         String    @map("sku_or_item_id")
-  firstPurchaseDate   DateTime? @map("first_purchase_date")
-  lastReceiptDate     DateTime? @map("last_receipt_date")
-  lastReceiptQuantity Float?    @map("last_receipt_quantity")
-  receiptCountLookback Int?     @map("receipt_count_lookback")
-  receivedQtyLookback Float?    @map("received_qty_lookback")
+  id                   String    @id @default(uuid()) @map("receipt_history_id")
+  iamRunId             String    @map("iam_run_id")
+  run                  IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId          String    @map("sku_or_item_id")
+  firstPurchaseDate    DateTime? @map("first_purchase_date")
+  lastReceiptDate      DateTime? @map("last_receipt_date")
+  lastReceiptQuantity  Float?    @map("last_receipt_quantity")
+  receiptCountLookback Int?      @map("receipt_count_lookback")
+  receivedQtyLookback  Float?    @map("received_qty_lookback")
 
   @@index([iamRunId, skuOrItemId])
   @@map("receipt_history_summary")
 }
 
 model IncomingSupply {
-  id                 String    @id @default(uuid()) @map("incoming_supply_id")
-  iamRunId           String    @map("iam_run_id")
-  run                IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
-  skuOrItemId        String    @map("sku_or_item_id")
-  openOrderQuantity  Float?    @map("open_order_quantity")
+  id                  String    @id @default(uuid()) @map("incoming_supply_id")
+  iamRunId            String    @map("iam_run_id")
+  run                 IamRun    @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId         String    @map("sku_or_item_id")
+  openOrderQuantity   Float?    @map("open_order_quantity")
   expectedReceiptDate DateTime? @map("expected_receipt_date")
-  backorderQuantity  Float?    @map("backorder_quantity")
-  dataConfidence     String    @default("Medium Confidence") @map("data_confidence")
+  backorderQuantity   Float?    @map("backorder_quantity")
+  dataConfidence      String    @default("Medium Confidence") @map("data_confidence")
+  evidenceBatchId     String?   @map("evidence_batch_id")
+  evidenceBatch       EvidenceBatch? @relation(fields: [evidenceBatchId], references: [id], onDelete: SetNull)
 
   @@index([iamRunId, skuOrItemId])
   @@map("incoming_supply")
+}
+
+/// Canonical Evidence Package batch (ADR-IAM-001 Inbound Port).
+model EvidenceBatch {
+  id               String   @id @default(uuid()) @map("evidence_batch_id")
+  iamRunId         String   @map("iam_run_id")
+  run              IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  /// Client/adapter-supplied idempotency key (unique per review cycle).
+  externalBatchKey String   @map("external_batch_key")
+  sourceSystem     String   @map("source_system")
+  sourceReportType String   @map("source_report_type")
+  asOfTimestamp    DateTime? @map("as_of_timestamp")
+  contentIdentity  String?  @map("content_identity")
+  sourceFileName   String?  @map("source_file_name")
+  status           String   @default("accepted") @map("status") // accepted | rejected | superseded | pending_reconcile
+  itemCount        Int      @default(0) @map("item_count")
+  errorDetail      String?  @map("error_detail")
+  /// Normalized channel for priority: CustomerUpload | Keystroke | RSE | DataHub | Other
+  sourceChannel    String?  @map("source_channel")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  inventorySnapshots InventorySnapshot[]
+  demandHistory      DemandHistory[]
+  incomingSupply     IncomingSupply[]
+
+  @@unique([iamRunId, externalBatchKey])
+  @@index([iamRunId, sourceReportType])
+  @@map("evidence_batches")
+}
+
+/// Cross-source evidence conflict detected during unified reconciliation.
+model EvidenceConflict {
+  id               String   @id @default(uuid()) @map("evidence_conflict_id")
+  iamRunId         String   @map("iam_run_id")
+  run              IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  skuOrItemId      String   @map("sku_or_item_id")
+  domain           String   // inventory | demand
+  winningSource    String   @map("winning_source")
+  losingSource     String   @map("losing_source")
+  winningValue     String?  @map("winning_value")
+  losingValue      String?  @map("losing_value")
+  resolutionRule   String   @map("resolution_rule")
+  detailJson       String?  @map("detail_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([iamRunId, skuOrItemId])
+  @@map("evidence_conflicts")
+}
+
+/// V1.5 Recommendation (primary entity). Legacy Action/ActionCandidate retained for V1 UI until Phase 3–5.
+model Recommendation {
+  id                       String   @id @default(uuid()) @map("recommendation_id")
+  iamRunId                 String   @map("iam_run_id")
+  run                      IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  sourceModule             String   @map("source_module")
+  sourceRecommendationId   String?  @map("source_recommendation_id")
+  generationPath           String   @default("module") @map("generation_path") // module | interim_evidence
+  opportunityKey           String   @map("opportunity_key")
+  skuOrItemId              String?  @map("sku_or_item_id")
+  /// sku | segment — segment Recommendations carry drill-down SKUs in explainabilityJson.
+  analysisGrain            String   @default("sku") @map("analysis_grain")
+  /// classification | vendor | category | department | location | product_group | portfolio | null
+  segmentType              String?  @map("segment_type")
+  segmentKey               String?  @map("segment_key")
+  affectedSkuCount         Int?     @map("affected_sku_count")
+  recommendationType       String   @map("recommendation_type")
+  title                    String
+  lifecycleState           String   @default("Identified") @map("lifecycle_state") // IAM-007B LS names
+  /// Interim SD-13 presentation category (not a lifecycle state).
+  presentationCategory     String   @default("managed_backlog") @map("presentation_category")
+  // top_2 (legacy alias) | active_priority | waiting_activation | emergency | holdover | deferred | managed_backlog | completed_presentation | archived_history
+  presentationRank         Int?     @map("presentation_rank")
+  confidence               String   @default("Medium") @map("confidence")
+  estimatedFinancialImpact Float?   @map("estimated_financial_impact")
+  estimatedCashImpact      Float?   @map("estimated_cash_impact")
+  costOfInaction           Float?   @map("cost_of_inaction")
+  /// Phase 4 — authoritative priority from scoring service (interim profile until SD-1).
+  priorityScore            Float?   @map("priority_score")
+  /// Phase 4 — e.g. interim_v1_cash_led (A-005).
+  scoringProfileId         String?  @map("scoring_profile_id")
+  /// EEP Trust Pyramid — plain-English presentation (not scoring inputs).
+  storyWhat                String?  @map("story_what")
+  storyWhy                 String?  @map("story_why")
+  storyWhyNow              String?  @map("story_why_now")
+  storyExpectedResult      String?  @map("story_expected_result")
+  confidenceNarrative      String?  @map("confidence_narrative")
+  /// EEP WIP progress (narrative — not lifecycle).
+  progressNarrative        String?  @map("progress_narrative")
+  blockerNote              String?  @map("blocker_note")
+  lastProgressAt           DateTime? @map("last_progress_at")
+  expectedCompletionAt     DateTime? @map("expected_completion_at")
+  explainabilityJson       String?  @map("explainability_json")
+  evidenceRefsJson         String?  @map("evidence_refs_json")
+  sourcePayloadHash        String?  @map("source_payload_hash")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  assignments         RecommendationAssignment[]
+  contributors        RecommendationContributor[]
+  assignmentHistory   RecommendationAssignmentHistory[]
+  financialImpacts    FinancialImpact[]
+  governanceDecisions GovernanceDecision[]
+  workflowEvents      WorkflowEvent[]
+  notes               RecommendationNote[]
+
+  @@unique([iamRunId, sourceModule, sourceRecommendationId])
+  @@index([iamRunId, opportunityKey])
+  @@index([iamRunId, generationPath])
+  @@index([iamRunId, presentationCategory])
+  @@index([iamRunId, priorityScore])
+  @@map("recommendations")
+}
+
+model RecommendationAssignment {
+  id                 String   @id @default(uuid()) @map("assignment_id")
+  recommendationId   String   @map("recommendation_id")
+  recommendation     Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  primaryOwnerUserId String   @map("primary_owner_user_id")
+  primaryOwnerName   String?  @map("primary_owner_name")
+  accepted           Boolean  @default(false)
+  progressPercent    Int      @default(0) @map("progress_percent")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([recommendationId, active])
+  @@map("recommendation_assignments")
+}
+
+model RecommendationContributor {
+  id               String   @id @default(uuid()) @map("contributor_id")
+  recommendationId String   @map("recommendation_id")
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  userId           String   @map("user_id")
+  displayName      String?  @map("display_name")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([recommendationId, userId])
+  @@map("recommendation_contributors")
+}
+
+/// Append-only assignment history (Phase 3 — Contributors / assignment accountability).
+model RecommendationAssignmentHistory {
+  id                 String   @id @default(uuid()) @map("assignment_history_id")
+  recommendationId   String   @map("recommendation_id")
+  recommendation     Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  eventType          String   @map("event_type") // assigned | reassigned | accepted | unassigned
+  primaryOwnerUserId String?  @map("primary_owner_user_id")
+  primaryOwnerName   String?  @map("primary_owner_name")
+  performedBy        String   @map("performed_by")
+  detailJson         String?  @map("detail_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([recommendationId, createdAt])
+  @@map("recommendation_assignment_history")
+}
+
+/// Phase 5 — contributor / management notes on Recommendations (Board UX).
+model RecommendationNote {
+  id               String   @id @default(uuid()) @map("note_id")
+  recommendationId String   @map("recommendation_id")
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  body             String
+  /// shared | management — management hidden from Owner soft viewAs
+  visibility       String   @default("shared")
+  authoredBy       String   @map("authored_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([recommendationId, createdAt])
+  @@map("recommendation_notes")
+}
+
+model FinancialImpact {
+  id               String   @id @default(uuid()) @map("impact_id")
+  recommendationId String   @map("recommendation_id")
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  revision         Int      @default(1)
+  expectedValue    Float    @map("expected_value")
+  expectedCash     Float?   @map("expected_cash")
+  /// Net scoreable 13-week cash for revised Cash Impact ratio (not inventory book value).
+  netScoreable13WeekCash Float? @map("net_scoreable_13_week_cash")
+  /// Net scoreable profitability improvement/protection for revised Profitability ratio.
+  netScoreableProfitability Float? @map("net_scoreable_profitability")
+  estimationMethod String?  @map("estimation_method")
+  impactPeriod     String?  @map("impact_period")
+  actualValue      Float?   @map("actual_value")
+  actualCash       Float?   @map("actual_cash")
+  currency         String   @default("USD")
+  measurable       Boolean  @default(true)
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([recommendationId, revision])
+  @@map("financial_impacts")
+}
+
+/// Governance outcomes (Approve, Reject, Defer, Pause, Escalate, etc.) — not lifecycle states for Defer/Reject.
+model GovernanceDecision {
+  id               String   @id @default(uuid()) @map("governance_decision_id")
+  iamRunId         String   @map("iam_run_id")
+  run              IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  recommendationId String?  @map("recommendation_id")
+  recommendation   Recommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+  decisionType     String   @map("decision_type")
+  reason           String?
+  performedBy      String   @map("performed_by")
+  performedAt      DateTime @default(now()) @map("performed_at")
+  detailJson       String?  @map("detail_json")
+
+  @@index([iamRunId, decisionType])
+  @@index([recommendationId])
+  @@map("governance_decisions")
+}
+
+model WorkflowEvent {
+  id               String   @id @default(uuid()) @map("workflow_event_id")
+  iamRunId         String   @map("iam_run_id")
+  run              IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  recommendationId String?  @map("recommendation_id")
+  recommendation   Recommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+  fromState        String   @map("from_state")
+  toState          String   @map("to_state")
+  performedBy      String   @map("performed_by")
+  eventTime        DateTime @default(now()) @map("event_time")
+  reason           String?
+
+  @@index([recommendationId, eventTime])
+  @@map("workflow_events")
+}
+
+model AuditEvent {
+  id          String   @id @default(uuid()) @map("audit_event_id")
+  iamRunId    String   @map("iam_run_id")
+  run         IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String
+  performedBy String   @map("performed_by")
+  performedAt DateTime @default(now()) @map("performed_at")
+  detailJson  String?  @map("detail_json")
+  requestId   String?  @map("request_id")
+
+  @@index([iamRunId, performedAt])
+  @@index([entityType, entityId])
+  @@map("audit_events")
 }
 
 model ActionCandidate {
@@ -215,11 +519,11 @@ model Action {
 }
 
 model GroupedActionItem {
-  id               String @id @default(uuid()) @map("grouped_action_item_id")
-  actionId         String @map("action_id")
-  action           Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  childReferenceId String @map("child_reference_id")
-  childStatus      String @default("open") @map("child_status")
+  id               String  @id @default(uuid()) @map("grouped_action_item_id")
+  actionId         String  @map("action_id")
+  action           Action  @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  childReferenceId String  @map("child_reference_id")
+  childStatus      String  @default("open") @map("child_status")
   childNote        String? @map("child_note")
 
   @@map("grouped_action_items")
@@ -239,35 +543,35 @@ model ActionNote {
 }
 
 model ActionHistoryArchive {
-  id                      String   @id @default(uuid()) @map("archive_record_id")
-  actionId                String   @unique @map("action_id")
-  action                  Action   @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  iamRunId                String   @map("iam_run_id")
-  actionTitle             String   @map("action_title")
-  actionType              String   @map("action_type")
-  ownerRoleOrUser         String?  @map("owner_role_or_user")
-  firstSurfacedDate       DateTime @map("first_surfaced_date")
+  id                      String    @id @default(uuid()) @map("archive_record_id")
+  actionId                String    @unique @map("action_id")
+  action                  Action    @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  iamRunId                String    @map("iam_run_id")
+  actionTitle             String    @map("action_title")
+  actionType              String    @map("action_type")
+  ownerRoleOrUser         String?   @map("owner_role_or_user")
+  firstSurfacedDate       DateTime  @map("first_surfaced_date")
   completedDate           DateTime? @map("completed_date")
-  archivedDate            DateTime @map("archived_date")
-  originalEstimatedImpact Float?   @map("original_estimated_impact")
-  actualAchievedImpact    Float?   @map("actual_achieved_impact")
+  archivedDate            DateTime  @map("archived_date")
+  originalEstimatedImpact Float?    @map("original_estimated_impact")
+  actualAchievedImpact    Float?    @map("actual_achieved_impact")
 
   @@map("action_history_archive")
 }
 
 model ModuleSignal {
-  id                 String   @id @default(uuid()) @map("module_signal_id")
-  iamRunId           String   @map("iam_run_id")
-  run                IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
-  sourceModule       String   @map("source_module")
-  signalType         String   @map("signal_type")
-  signalCategory     String   @default("Advisory") @map("signal_category")
-  integrationStatus  String   @default("Received") @map("integration_status")
-  skuOrItemId        String?  @map("sku_or_item_id")
-  summary            String?
-  payloadJson        String?  @map("payload_json")
-  confidenceLevel    String   @default("Medium Confidence") @map("confidence_level")
-  createdAt          DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid()) @map("module_signal_id")
+  iamRunId          String   @map("iam_run_id")
+  run               IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  sourceModule      String   @map("source_module")
+  signalType        String   @map("signal_type")
+  signalCategory    String   @default("Advisory") @map("signal_category")
+  integrationStatus String   @default("Received") @map("integration_status")
+  skuOrItemId       String?  @map("sku_or_item_id")
+  summary           String?
+  payloadJson       String?  @map("payload_json")
+  confidenceLevel   String   @default("Medium Confidence") @map("confidence_level")
+  createdAt         DateTime @default(now()) @map("created_at")
 
   @@index([iamRunId, skuOrItemId])
   @@map("module_signals")
@@ -299,4 +603,51 @@ model ChangeLog {
   changedAt  DateTime @default(now()) @map("changed_at")
 
   @@map("change_logs")
+}
+
+/// Keystroke staging retained; Phase 2 routes through Adapter → Inbound Port.
+model UploadBatch {
+  id               String   @id @default(uuid()) @map("upload_batch_id")
+  iamRunId         String   @map("iam_run_id")
+  run              IamRun   @relation(fields: [iamRunId], references: [id], onDelete: Cascade)
+  originalFilename String   @map("original_filename")
+  fileType         String   @map("file_type")
+  demandVariant    String?  @map("demand_variant")
+  rowCount         Int      @default(0) @map("row_count")
+  status           String   @default("staged") @map("status")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  rows UploadStagingRow[]
+
+  @@index([iamRunId, fileType])
+  @@map("upload_batches")
+}
+
+model UploadStagingRow {
+  id             String  @id @default(uuid()) @map("upload_staging_row_id")
+  batchId        String  @map("upload_batch_id")
+  batch          UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  skuOrItemId    String  @map("sku_or_item_id")
+  description    String?
+  /// On-Hand Qty from source (may be null when only Available QOH present).
+  quantityOnHand Float?  @map("quantity_on_hand")
+  /// Available QOH from source (SD-15 preferred basis when present).
+  availableQoh   Float?  @map("available_qoh")
+  cost           Float?
+  inventoryValue Float?  @map("inventory_value")
+  unitsSold      Float?  @map("units_sold")
+  salesDollars   Float?  @map("sales_dollars")
+  openOrderQty   Float?  @map("open_order_qty")
+  /// 1-based spreadsheet row reference (provenance).
+  sourceRowRef   String? @map("source_row_ref")
+  classification String?
+  vendorName     String? @map("vendor_name")
+  category       String?
+  department     String?
+  locationCode   String? @map("location_code")
+  productGroup   String? @map("product_group")
+  itemStatus     String? @map("item_status")
+
+  @@index([batchId, skuOrItemId])
+  @@map("upload_staging_rows")
 }

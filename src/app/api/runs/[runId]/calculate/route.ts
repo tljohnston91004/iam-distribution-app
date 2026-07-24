@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runIamCalculatePipeline } from "@/lib/iam/engine/calculate-pipeline";
+import { IngestionError } from "@/lib/iam/ingestion";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
@@ -8,6 +9,10 @@ export async function POST(_req: Request, ctx: { params: Promise<{ runId: string
     return NextResponse.json(result);
   } catch (err) {
     console.error(err);
+    if (err instanceof IngestionError) {
+      const status = err.code === "NOT_FOUND" ? 404 : 400;
+      return NextResponse.json({ error: err.message, code: err.code }, { status });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Calculate failed" },
       { status: 500 }

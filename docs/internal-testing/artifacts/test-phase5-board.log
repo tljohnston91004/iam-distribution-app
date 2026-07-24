@@ -1,0 +1,16 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase5-board
+> npx tsx scripts/run-phase5-board-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P5-LOAD — Board loader returns scored Recommendations :: n=2
+PASS P5-LANES — Lane order includes Active Priorities, Emergency, Holdover, Waiting, Deferred :: active_priority|emergency|holdover|waiting_activation|deferred
+PASS P5-HEALTH — Business health summary available :: {"active_priority":2,"waiting_activation":0,"top_2":2,"managed_backlog":0}
+PASS P5-TOP2 — Active Priorities lane populated for Board :: Board Interim Risk | Board Top Cash
+PASS P5-HINT — Required action hints for management review :: Approve, Defer, or Reject
+PASS P5-DEFER-UI — Deferred recommendation appears in deferred lane for Board :: deferred
+PASS P5-NOTES — Management notes persist; distinct from shared :: note=831f9896-6460-47bd-8359-7eab98cb7bab shared=0
+PASS P5-INTERIM-BADGE — Interim generationPath available for Board badge :: module,interim_evidence
+
+8/8 passed

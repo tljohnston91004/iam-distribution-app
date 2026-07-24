@@ -1,0 +1,22 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase3-lifecycle
+> npx tsx scripts/run-phase3-lifecycle-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P3-LS-CATALOG — LS-01–LS-11 catalog matches IAM-007B :: Identified, Management Review, Approved, Assignment Pending, Awaiting Acceptance, Active, Paused, Escalated, Completed, Outcome Validation, Archived
+PASS P3-HAPPY — Happy path Identified → Archived via OV :: state=Archived events=11
+PASS P3-AUDIT — Every governed path writes audit / workflow events :: audits=13 gov=PresentForReview,Approve,Assign,Accept,Pause,Resume,Escalate,Complete,StartOutcomeValidation,OutcomeValidationPass
+PASS P3-ASSIGN-HIST — Assignment history + contributors :: history=assigned,accepted contrib=1
+PASS P3-INVALID — Invalid transition rejected :: Invalid lifecycle transition: Identified → Active
+PASS P3-NO-OV — Archive without Outcome Validation rejected :: Invalid lifecycle transition: Completed → Archived
+PASS P3-PAUSE-REQ — Pause without reason rejected :: Pause requires documented justification
+PASS P3-DEFER — Defer is governance outcome (LS unchanged; not Deferred state) :: ls=Management Review gov=Defer present=deferred
+PASS P3-DEFER-BLOCK — Defer blocks further LS transitions :: Recommendation has governance outcome Defer; further lifecycle transitions are blocked this cycle
+PASS P3-REJECT — Reject is governance outcome (not Rejected LS state) :: ls=Management Review present=completed_presentation
+PASS P3-ACCEPT-GATE — Active requires owner acceptance :: Primary Owner acceptance is required before Active (IAM-007B)
+PASS P3-LOCK — Locked cycle rejects transitions :: status=Locked err=Review cycle is locked; governed transitions are not allowed
+PASS P3-NO-HOLDOVER-LS — Holdover is never a lifecycle state :: holdoverLsCount=0
+PASS P3-ESC-LS08 — Escalate moves to Escalated (LS-08) :: Escalated
+
+14/14 passed

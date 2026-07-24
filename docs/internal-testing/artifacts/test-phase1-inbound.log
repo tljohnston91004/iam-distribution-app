@@ -1,0 +1,16 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase1-inbound
+> npx tsx scripts/run-phase1-inbound-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P1-SD15 Available QOH preferred — {"basis":"available_qoh","usableQty":10}
+PASS P1-SD15b On-Hand fallback — {"basis":"on_hand","usableQty":7}
+PASS P1-EV-01 Evidence batch persists inventory with QOH basis — inv=2 dem=1 basis=available_qoh
+PASS P1-EV-02 GetIngestionStatus by id — accepted
+PASS P1-REC-01 Module recommendation create — {"createdCount":1,"updatedCount":0,"enrichedModuleCount":0,"skippedDuplicateInterimCount":0,"createdIds":["6b2a6fef-c130-4b23-b4bd-31c80faac393"],"updatedIds":[],"enrichedIds":[]}
+PASS P1-SD17 SD-17 interim does not duplicate module Recommendation — recs=1 skipped=1
+PASS P1-REC-02 Interim allowed when no module Recommendation — {"createdCount":1,"updatedCount":0,"enrichedModuleCount":0,"skippedDuplicateInterimCount":0,"createdIds":["d7eac4d3-2436-48fd-b5d1-08797fcd2e7d"],"updatedIds":[],"enrichedIds":[]}
+PASS P1-EV-03 Evidence batch key idempotent replace — {"evidenceBatchId":"9b0b9344-7401-4d1e-b29b-90a27ae1843e","externalBatchKey":"test-inv-001","status":"accepted","inventoryRows":1,"demandRows":0,"supplyRows":0,"supersededPriorBatch":true}
+
+8/8 passed

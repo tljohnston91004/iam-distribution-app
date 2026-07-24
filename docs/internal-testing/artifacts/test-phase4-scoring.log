@@ -1,0 +1,22 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase4-scoring
+> npx tsx scripts/run-phase4-scoring-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P4-PROFILE — Interim scoring profile id and label present :: interim_v1_cash_led
+PASS P4-SD14 — Actionability excluded from composite (sequencing only) :: sum=1.0000 scoreEqual=true seq=80/40
+PASS P4-NOSUPPRESS — Low-confidence recommendations are ranked (not suppressed) :: n=2 ids=tmp-a,tmp-low
+PASS P4-PERSIST — Score breakdown + profile persisted on Recommendations :: scored=4 sample=interim_v1_cash_led/51.64170982837751
+PASS P4-TOP2 — Presentation assigns Active Priorities from ranked scores within OEC :: active=Interim stock risk:73.37898136958904 oec={"capacity":2,"holdoverConsumed":1,"promoted":1}
+PASS P4-HOLDOVER — Open execution work lands in Holdover lane (not LS change) :: holdover=1 activeLs=Active
+PASS P4-BACKLOG — Remaining competitors are Waiting for Activation :: waiting=2 emergency=0
+PASS P4-LS-INDEP — Presentation assignment does not mutate lifecycle states :: waiting_activation/Identified, waiting_activation/Identified, holdover/Active, active_priority/Identified
+PASS P4-INTERIM-FLAG — Interim evidence-generated Recommendations remain flagged :: interimCount=2
+PASS P4-MODULE — Module Recommendation can occupy Active Priority when scored highest (Paused frees OEC) :: module:Module high cash | interim_evidence:Interim stock risk
+PASS P4-PRESERVE — completed_presentation is preserved across re-assign :: preserved=1
+PASS P4-SEP — Scoring service does not change presentation category :: waiting_activation → waiting_activation
+PASS P4-DEFER-LANE — Active Defer → deferred lane; not in Active Priorities; score retained :: present=deferred score=52.82608695652173 activeHas=false
+PASS P4-DEFER-REACTIVATE — Reactivate restores Active Priority eligibility without recalculating score :: present=waiting_activation score=52.82608695652173
+
+14/14 passed

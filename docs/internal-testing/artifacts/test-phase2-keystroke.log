@@ -1,0 +1,24 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase2-keystroke
+> npx tsx scripts/run-phase2-keystroke-adapter-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P2-STK0 — STK#0 exclusion helper :: isExcludedSummarySku
+PASS P2-UNSUP — Unsupported report type rejected :: Unsupported Keystroke report or file type: random_report.xlsx. Use SCBSRSE3/INVENTORYPOSITION or TrueDemandReplenishment (Standard/Matrix).
+PASS P2-MAL — Malformed empty buffer rejected :: Empty or missing file buffer
+PASS P2-MISS — Missing filename rejected :: Filename is required
+PASS P2-ALIAS — Header aliases + STK#0 excluded from staging :: rows=3 skuA={"id":"a094fed8-b81a-4935-aba9-e382ace35c54","batchId":"df77e02c-4b96-4146-9543-7bb06d3daddd","skuOrItemId":"SKU-A","description":"Item A","quantityOnHand":12,"availableQoh":10,"cost":5,"inventoryValue":60,"unitsSold":null,"salesDollars":null,"openOrderQty":2,"sourceRowRef":"2"}
+PASS P2-QOH-AVAIL — Available QOH preferred (SKU-A) :: {"id":"92f0d8a0-83fd-457d-8e1f-e3e0f32b3d02","iamRunId":"8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c","skuOrItemId":"SKU-A","description":"Item A","quantityOnHand":12,"availableQoh":10,"quantityBasisUsed":"available_qoh","cost":5,"inventoryValue":60,"classification":null,"itemStatus":null,"vendorName":null,"dataConfidence":"Medium Confidence","entityEligibility":"rankable","evidenceBatchId":"2f77e94f-7887-4ae4-8b0e-3541f6f7fe16","openOrderQuantity":2,"lastSoldDate":null,"lastReceivedDate":null,"sourceRowRef":"2"}
+PASS P2-QOH-FALL — On-Hand fallback (SKU-B) :: {"id":"99a70f86-eba5-4a34-8355-82cb70e9785d","iamRunId":"8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c","skuOrItemId":"SKU-B","description":"Item B","quantityOnHand":7,"availableQoh":null,"quantityBasisUsed":"on_hand","cost":3,"inventoryValue":21,"classification":null,"itemStatus":null,"vendorName":null,"dataConfidence":"Medium Confidence","entityEligibility":"rankable","evidenceBatchId":"2f77e94f-7887-4ae4-8b0e-3541f6f7fe16","openOrderQuantity":0,"lastSoldDate":null,"lastReceivedDate":null,"sourceRowRef":"3"}
+PASS P2-QOH-AVAIL-ONLY — Available-only row accepted (SKU-C) :: {"id":"28950037-7f0d-43da-bfe2-89e4d655df86","iamRunId":"8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c","skuOrItemId":"SKU-C","description":"Item C","quantityOnHand":4,"availableQoh":4,"quantityBasisUsed":"available_qoh","cost":2,"inventoryValue":8,"classification":null,"itemStatus":null,"vendorName":null,"dataConfidence":"Medium Confidence","entityEligibility":"rankable","evidenceBatchId":"2f77e94f-7887-4ae4-8b0e-3541f6f7fe16","openOrderQuantity":0,"lastSoldDate":null,"lastReceivedDate":null,"sourceRowRef":"4"}
+PASS P2-STK0-MERGE — STK#0 excluded from evidence :: inv=3 dem=3
+PASS P2-PROV — Provenance preserved (source system/file/batch/row) :: demand_replenishment:TrueDemandReplenishment_Standard.xlsx; inventory_position:SCBSRSE3_test.xlsx
+PASS P2-PORT — Keystroke evidence enters exclusively via Inbound Port :: inv linked=3
+PASS P2-IDEM — Repeat merge idempotency (stable evidence keys) :: batches=2 keys=keystroke:demand:8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c,keystroke:inventory:8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c
+PASS P2-DUP — Duplicate batch submission supersedes (idempotent key) :: {"evidenceBatchId":"2f77e94f-7887-4ae4-8b0e-3541f6f7fe16","externalBatchKey":"keystroke:inventory:8d2d44a8-5d2a-4a0e-837c-0e736ccebf7c","status":"accepted","inventoryRows":1,"demandRows":0,"supplyRows":0,"supersededPriorBatch":true}
+PASS P2-FTYPE — Filename/report identification :: {"fileType":"inventory_position","variant":null}
+PASS P2-HUB — Future Hub adapter can use same Inbound Port (no Core change) :: {"hub":{"evidenceBatchId":"2c7b9b31-75aa-4fe5-a07e-acb4c29dd8e2","externalBatchKey":"hub:inventory:smoke","status":"accepted","inventoryRows":1,"demandRows":0,"supplyRows":0,"supersededPriorBatch":false},"basis":"available_qoh"}
+PASS P2-REQ — Missing required QOH fields rejected :: No inventory rows with On-Hand or Available QOH found
+
+16/16 passed

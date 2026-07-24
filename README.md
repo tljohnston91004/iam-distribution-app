@@ -5,6 +5,8 @@ It answers: **What inventory action matters most now, who owns it, and how do we
 
 This app is a **sibling** to the RSE and IFM distribution apps and mirrors their stack and conventions.
 
+**Version 1.5:** Phase authorization — [`docs/IAM_V1_5_Phase_Authorization_Register.md`](./docs/IAM_V1_5_Phase_Authorization_Register.md). Running status — [`docs/IAM_V1_5_Implementation_Dashboard.md`](./docs/IAM_V1_5_Implementation_Dashboard.md). ADR — [`docs/architecture/ADR-IAM-001-Canonical-Inbound-Port-and-Replaceable-Source-Adapter-Architecture.md`](./docs/architecture/ADR-IAM-001-Canonical-Inbound-Port-and-Replaceable-Source-Adapter-Architecture.md). Plan — [`docs/IAM_V1_5_Implementation_Plan.md`](./docs/IAM_V1_5_Implementation_Plan.md). No phase implementation until the Project Owner marks that phase **Authorized**.
+
 | Module | Role |
 |--------|------|
 | **RSE** | Replenishment settings — identifies what inventory may need buying |

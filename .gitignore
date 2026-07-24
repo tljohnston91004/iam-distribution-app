@@ -9,5 +9,6 @@ data/
 *.db-journal
 tsconfig.tsbuildinfo
 server.log
+dev-error.log
 .DS_Store
 Thumbs.db

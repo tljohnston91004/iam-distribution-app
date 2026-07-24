@@ -1,0 +1,15 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase3-closure
+> npx tsx scripts/run-phase3-closure-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS P3C-DF02-PAUSE — Failed pause leaves no Pause governance and no LS change :: ls=Identified pauseGov=0 err=Pause is only valid from Active
+PASS P3C-DF02-ESC — Failed escalate leaves no Escalate governance and no LS change :: ls=Identified escGov=0
+PASS P3C-DF02-OK — Successful pause commits LS + governance together :: ls=Paused gov=Pause
+PASS P3C-DF03 — All transitions validated through lifecycle engine :: Invalid lifecycle transition: Identified → Active
+PASS P3C-DF01 — Illegal transitions generate audit records :: {"timestamp":"2026-07-21T23:58:06.636Z","requestingUser":"tester","fromState":"Identified","requestedTransition":"Identified→Active","rejectionReason":"Invalid lifecycle transition: Identified → Active","code":"INVALID_TRANSITION"}
+PASS P3C-DF01-PAUSE — Failed pause generates rejection audit :: count=1
+PASS P3C-NO-PARTIAL — Failed transitions leave no partial lifecycle changes :: ls=Management Review wf=1
+
+7/7 passed

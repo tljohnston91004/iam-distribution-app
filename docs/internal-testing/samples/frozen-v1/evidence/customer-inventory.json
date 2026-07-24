@@ -1,0 +1,26 @@
+{
+  "_freeze": "IAM-V15-IV-EVIDENCE-2026-07-23",
+  "_purpose": "Frozen customer-upload inventory for IT-17 standalone and IT-20 combined conflict on IV-SHARED-01",
+  "sourceSystem": "CustomerUpload",
+  "sourceReportType": "inventory_position",
+  "sourceFileName": "frozen-customer-inventory.json",
+  "evidenceBatchKey": "frozen:customer:inventory:v1",
+  "items": [
+    {
+      "skuOrItemId": "IV-CUST-01",
+      "description": "Standalone customer upload SKU",
+      "quantityOnHand": 100,
+      "unitCost": 9,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    },
+    {
+      "skuOrItemId": "IV-SHARED-01",
+      "description": "Shared SKU — lowest priority when RSE/Hub also present",
+      "quantityOnHand": 120,
+      "unitCost": 10,
+      "dataConfidence": "Medium Confidence",
+      "entityEligibility": "rankable"
+    }
+  ]
+}

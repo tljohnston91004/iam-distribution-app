@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { IamRunNav } from "@/components/IamRunNav";
-import { AssignedActionsPanel } from "@/components/AssignedActionsPanel";
+import { AssignedRecommendationsPanel } from "@/components/AssignedRecommendationsPanel";
+import type { BoardRecommendation } from "@/lib/iam/board/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +24,53 @@ export default async function AssignedViewPage({
   });
   if (!run) notFound();
 
-  const actions = await prisma.action.findMany({
+  const rows = await prisma.recommendation.findMany({
     where: {
       iamRunId: runId,
-      OR: [{ ownerName: ownerFilter }, { ownerRole: ownerFilter }],
-      workflowState: { in: ["Awaiting Acceptance", "Active", "Holdover", "Paused", "Approved"] },
+      lifecycleState: {
+        in: [
+          "Assignment Pending",
+          "Awaiting Acceptance",
+          "Active",
+          "Paused",
+          "Escalated",
+          "Approved",
+        ],
+      },
+      assignments: {
+        some: {
+          active: true,
+          OR: [{ primaryOwnerName: ownerFilter }, { primaryOwnerUserId: ownerFilter }],
+        },
+      },
     },
-    orderBy: { dueDate: "asc" },
+    include: { assignments: { where: { active: true }, take: 1 } },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const items: BoardRecommendation[] = rows.map((r) => {
+    const a = r.assignments[0];
+    return {
+      id: r.id,
+      title: r.title,
+      recommendationType: r.recommendationType,
+      skuOrItemId: r.skuOrItemId,
+      lifecycleState: r.lifecycleState,
+      presentationCategory: r.presentationCategory,
+      presentationRank: r.presentationRank,
+      generationPath: r.generationPath,
+      sourceModule: r.sourceModule,
+      confidence: r.confidence,
+      priorityScore: r.priorityScore,
+      scoringProfileId: r.scoringProfileId,
+      estimatedFinancialImpact: r.estimatedFinancialImpact,
+      estimatedCashImpact: r.estimatedCashImpact,
+      costOfInaction: r.costOfInaction,
+      explainabilityJson: r.explainabilityJson,
+      ownerUserId: a?.primaryOwnerUserId ?? null,
+      ownerName: a?.primaryOwnerName ?? null,
+      ownerAccepted: a?.accepted ?? false,
+    };
   });
 
   return (
@@ -40,28 +81,18 @@ export default async function AssignedViewPage({
 
       <header style={{ marginTop: 8 }}>
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 1 }}>
-          Assigned User View
+          Functional Owner Queue
         </p>
         <h1 style={{ fontSize: 26, margin: "4px 0" }}>{run.runName}</h1>
         <p style={{ color: "var(--muted)", margin: 0 }}>
-          Showing actions for: <strong>{ownerFilter}</strong>
+          Showing recommendations for: <strong>{ownerFilter}</strong> (query{" "}
+          <code>?owner=</code>)
         </p>
       </header>
 
       <IamRunNav runId={runId} active="assigned" />
 
-      <AssignedActionsPanel
-        runId={runId}
-        actions={actions.map((a) => ({
-          id: a.id,
-          actionTitle: a.actionTitle,
-          workflowState: a.workflowState,
-          dueDate: a.dueDate?.toISOString() ?? null,
-          reviewDate: a.reviewDate?.toISOString() ?? null,
-          actionType: a.actionType,
-        }))}
-        ownerFilter={ownerFilter}
-      />
+      <AssignedRecommendationsPanel runId={runId} items={items} ownerFilter={ownerFilter} />
     </main>
   );
 }

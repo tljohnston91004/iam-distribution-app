@@ -1,0 +1,17 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> iam-distribution-app@0.1.0 test:phase5a-experience
+> npx tsx scripts/run-phase5a-experience-tests.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+PASS EEP-PROMOTE — Active Priorities ≤ available OEC after Holdover consumption :: {"capacity":2,"holdoverConsumed":1,"promoted":1}
+PASS EEP-PAUSED-LANE — Paused is Holdover-visible but excluded from OEC holdover consumption :: holdover=EEP Paused Holdover|EEP Active Holdover
+PASS EEP-CONSUME — measureOecConsumption excludes Paused; includes Active Priority + Active Holdover :: {"oec":2,"consumed":2,"available":0,"consumers":[{"recommendationId":"6dd80935-1c9c-4b5b-935d-abd4bfa357fa","reason":"active_priority"},{"recommendationId":"f31cf44d-0602-4140-88a4-3e9935860913","reason":"holdover_Active"}]}
+PASS EEP-OEC-AUDIT — OEC config change is auditable and expands Active Priorities :: active=2 audit=true
+PASS EEP-TRUST — Trust Pyramid fields generated from existing facts :: Review Trapped Cash Review for SKU-E1: EEP High Cash.
+PASS EEP-STORY-PERSIST — Board loader exposes Trust Pyramid + confidence narrative :: Review Trapped Cash Review for SKU-E1: EEP High Cash.
+PASS EEP-AGING — Aging is advisory only (prompt object; no auto-mutation) :: This recommendation has been open for 20 days (advisory threshold 14). Reassess whether it should re
+PASS EEP-SUMMARY — Weekly Business Summary derived from measurable facts :: Execution in progress — 2 Holdover item(s) consuming capacity.
+PASS EEP-PROGRESS — Progress fields are additive and do not change lifecycle :: Active
+
+9/9 passed

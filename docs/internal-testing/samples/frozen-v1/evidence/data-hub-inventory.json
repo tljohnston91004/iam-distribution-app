@@ -1,0 +1,28 @@
+{
+  "_freeze": "IAM-V15-IV-EVIDENCE-2026-07-23",
+  "_purpose": "Frozen Data Hub Evidence Package fixture for IT-19 / IT-20 (API submit)",
+  "sourceSystem": "DataHub",
+  "sourceReportType": "inventory_position",
+  "sourceFileName": "frozen-hub-inventory.json",
+  "evidenceBatchKey": "frozen:hub:inventory:v1",
+  "items": [
+    {
+      "skuOrItemId": "IV-HUB-01",
+      "description": "Frozen Data Hub inventory SKU",
+      "quantityOnHand": 22,
+      "availableQoh": 20,
+      "quantityBasisUsed": "available_qoh",
+      "unitCost": 18,
+      "dataConfidence": "High Confidence",
+      "entityEligibility": "rankable"
+    },
+    {
+      "skuOrItemId": "IV-SHARED-01",
+      "description": "Shared SKU for priority conflict tests (Hub should win over RSE/upload)",
+      "quantityOnHand": 55,
+      "unitCost": 10,
+      "dataConfidence": "High Confidence",
+      "entityEligibility": "rankable"
+    }
+  ]
+}
