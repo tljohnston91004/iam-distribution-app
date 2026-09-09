@@ -210,13 +210,13 @@ export function RecommendationCard({
         </p>
       )}
 
-      {!compact && (recommendedManagementAction || planSummary) && (
+      {(recommendedManagementAction || planSummary) && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: compact ? 12 : 13,
             background: "var(--panel-2)",
             borderRadius: 8,
-            padding: 12,
+            padding: compact ? "8px 10px" : 12,
             borderLeft: "3px solid var(--accent)",
           }}
         >
@@ -224,7 +224,11 @@ export function RecommendationCard({
             Prescribed Action Plan
           </div>
           <div style={{ fontWeight: 600 }}>{recommendedManagementAction ?? planSummary}</div>
-          {planGroups.length > 0 && (
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
+            Summary only — open <strong>Details</strong> for the full Prescribed Action Plan (next
+            steps, sequence, owners, measures, risks, and SKU-level actions).
+          </p>
+          {!compact && planGroups.length > 0 && (
             <button
               type="button"
               style={{ ...btn, marginTop: 8 }}
@@ -234,7 +238,7 @@ export function RecommendationCard({
               {showPlan ? "Hide" : "Show"} action groups ({planGroups.length})
             </button>
           )}
-          {showPlan && (
+          {!compact && showPlan && (
             <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: "var(--muted)", fontSize: 12 }}>
               {planGroups.map((g) => (
                 <li key={g.actionLabel}>
@@ -242,6 +246,14 @@ export function RecommendationCard({
                 </li>
               ))}
             </ul>
+          )}
+          {compact && planGroups.length > 0 && (
+            <div style={{ marginTop: 4, color: "var(--muted)", fontSize: 11 }}>
+              {planGroups
+                .slice(0, 3)
+                .map((g) => `${g.actionLabel} (${g.skuCount})`)
+                .join(" · ")}
+            </div>
           )}
         </div>
       )}
@@ -256,7 +268,16 @@ export function RecommendationCard({
           }}
         >
           <Metric label="Cash impact" value={cash != null ? usd(cash) : "—"} />
-          <Metric label="COI" value={rec.costOfInaction != null ? usd(rec.costOfInaction) : "Not available"} />
+          <Metric
+            label="COI"
+            value={
+              rec.costOfInaction != null
+                ? usd(rec.costOfInaction)
+                : rec.companyCarryingCostRateConfigured === false
+                  ? "Not configured"
+                  : "—"
+            }
+          />
           {rec.analysisGrain === "segment" && (
             <Metric
               label="Affected SKUs"

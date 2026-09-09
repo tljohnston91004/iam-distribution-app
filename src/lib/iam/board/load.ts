@@ -1,9 +1,22 @@
 import { prisma } from "@/lib/db";
 import { evaluateAgingAdvisory, getOecForRun } from "@/lib/iam/presentation";
 import type { BoardRecommendation } from "./types";
+import { slimExplainabilityForBoard } from "./slim-explainability";
 
 export async function loadBoardRecommendations(iamRunId: string): Promise<BoardRecommendation[]> {
   const oec = await getOecForRun(iamRunId);
+  const runMeta = await prisma.iamRun.findUnique({
+    where: { id: iamRunId },
+    select: {
+      companyId: true,
+      company: { select: { annualCarryingCostRate: true } },
+    },
+  });
+  const rateConfigured = runMeta?.company.annualCarryingCostRate != null;
+  const companyConfigHref = runMeta
+    ? `/companies/${runMeta.companyId}/config?returnTo=${encodeURIComponent(`/runs/${iamRunId}`)}#carrying-cost-rate`
+    : null;
+
   const rows = await prisma.recommendation.findMany({
     where: { iamRunId },
     include: {
@@ -40,7 +53,19 @@ export async function loadBoardRecommendations(iamRunId: string): Promise<BoardR
       estimatedFinancialImpact: r.estimatedFinancialImpact,
       estimatedCashImpact: r.estimatedCashImpact,
       costOfInaction: r.costOfInaction,
-      explainabilityJson: r.explainabilityJson,
+      coiBoardDisplayLine: r.coiBoardDisplayLine,
+      coiCalculationStatus: r.coiCalculationStatus,
+      coiCalculationExplanation: r.coiCalculationExplanation,
+      coiConfidenceLevel: r.coiConfidenceLevel,
+      coiHorizonDays: r.coiHorizonDays,
+      carryingCostComponent: r.carryingCostComponent,
+      preventableLossComponent: r.preventableLossComponent,
+      annualCarryingCostRateUsed: r.annualCarryingCostRateUsed,
+      originalEstimatedCoi: r.originalEstimatedCoi,
+      revisedEstimatedCoi: r.revisedEstimatedCoi,
+      companyCarryingCostRateConfigured: rateConfigured,
+      companyConfigHref,
+      explainabilityJson: slimExplainabilityForBoard(r.explainabilityJson),
       ownerUserId: a?.primaryOwnerUserId ?? null,
       ownerName: a?.primaryOwnerName ?? null,
       ownerAccepted: a?.accepted ?? false,
@@ -107,5 +132,12 @@ export async function loadBusinessHealth(iamRunId: string) {
     agingDays: run.company.recommendationAgingDays,
     companyId: run.companyId,
     companyName: run.company.name,
+    annualCarryingCostRate: run.company.annualCarryingCostRate,
+    carryingCostRateConfigured: run.company.annualCarryingCostRate != null,
+    carryingCostRateDisplayPercent:
+      run.company.annualCarryingCostRate != null
+        ? Math.round(run.company.annualCarryingCostRate * 10000) / 100
+        : null,
+    companyConfigHref: `/companies/${run.companyId}/config?returnTo=${encodeURIComponent(`/runs/${iamRunId}`)}`,
   };
 }

@@ -66,6 +66,9 @@ export default async function AssignedViewPage({
       estimatedFinancialImpact: r.estimatedFinancialImpact,
       estimatedCashImpact: r.estimatedCashImpact,
       costOfInaction: r.costOfInaction,
+      coiBoardDisplayLine: r.coiBoardDisplayLine,
+      coiCalculationStatus: r.coiCalculationStatus,
+      coiCalculationExplanation: r.coiCalculationExplanation,
       explainabilityJson: r.explainabilityJson,
       ownerUserId: a?.primaryOwnerUserId ?? null,
       ownerName: a?.primaryOwnerName ?? null,
@@ -90,7 +93,7 @@ export default async function AssignedViewPage({
         </p>
       </header>
 
-      <IamRunNav runId={runId} active="assigned" />
+      <IamRunNav runId={runId} companyId={run.companyId} active="assigned" />
 
       <AssignedRecommendationsPanel runId={runId} items={items} ownerFilter={ownerFilter} />
     </main>

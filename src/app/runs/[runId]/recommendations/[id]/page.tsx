@@ -21,6 +21,7 @@ export default async function RecommendationDetailPage({
   const rec = await prisma.recommendation.findFirst({
     where: { id, iamRunId: runId },
     include: {
+      run: { include: { company: true } },
       assignments: { where: { active: true }, take: 1 },
       contributors: { where: { active: true } },
       notes: { orderBy: { createdAt: "asc" } },
@@ -36,7 +37,7 @@ export default async function RecommendationDetailPage({
 
   return (
     <main style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
-      <IamRunNav runId={runId} active="dashboard" />
+      <IamRunNav runId={runId} companyId={rec.run.companyId} active="dashboard" />
       <RecommendationDetailClient
         runId={runId}
         persona={persona}
@@ -55,6 +56,23 @@ export default async function RecommendationDetailPage({
           estimatedFinancialImpact: rec.estimatedFinancialImpact,
           estimatedCashImpact: rec.estimatedCashImpact,
           costOfInaction: rec.costOfInaction,
+          coiBoardDisplayLine: rec.coiBoardDisplayLine,
+          coiCalculationStatus: rec.coiCalculationStatus,
+          coiCalculationExplanation: rec.coiCalculationExplanation,
+          coiConfidenceLevel: rec.coiConfidenceLevel,
+          coiHorizonDays: rec.coiHorizonDays,
+          coiHorizonSource: rec.coiHorizonSource,
+          recommendedTargetPeriod: rec.recommendedTargetPeriod,
+          managementAdjustedTargetPeriod: rec.managementAdjustedTargetPeriod,
+          managementAdjustmentReason: rec.managementAdjustmentReason,
+          carryingCostComponent: rec.carryingCostComponent,
+          preventableLossComponent: rec.preventableLossComponent,
+          annualCarryingCostRateUsed: rec.annualCarryingCostRateUsed,
+          affectedInventoryValueForCoi: rec.affectedInventoryValueForCoi,
+          originalEstimatedCoi: rec.originalEstimatedCoi,
+          revisedEstimatedCoi: rec.revisedEstimatedCoi,
+          companyCarryingCostRateConfigured: rec.run.company.annualCarryingCostRate != null,
+          companyConfigHref: `/companies/${rec.run.companyId}/config?returnTo=${encodeURIComponent(`/runs/${runId}/recommendations/${id}`)}#carrying-cost-rate`,
           explainabilityJson: rec.explainabilityJson,
           storyWhat: rec.storyWhat,
           storyWhy: rec.storyWhy,

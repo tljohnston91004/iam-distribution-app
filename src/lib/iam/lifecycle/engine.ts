@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/db";
 import {
   LS,
+  LIFECYCLE_STATES,
   isLifecycleState,
   type LifecycleState,
   NON_LIFECYCLE_OUTCOMES,
@@ -318,6 +319,7 @@ export async function presentForReview(recommendationId: string, performedBy?: s
       performedBy: actor,
       action: "present_for_review",
     });
+    throw new LifecycleTransitionError("Recommendation not found", "NOT_FOUND");
   }
   // Idempotent: already in Management Review is success (avoids confusing UI double-click errors).
   if (parseState(existing.lifecycleState) === LS.LS_02) {

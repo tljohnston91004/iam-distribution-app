@@ -31,6 +31,10 @@ type Health = {
   agingDays?: number;
   companyId?: string;
   companyName?: string;
+  annualCarryingCostRate?: number | null;
+  carryingCostRateConfigured?: boolean;
+  carryingCostRateDisplayPercent?: number | null;
+  companyConfigHref?: string;
 };
 
 const btn: React.CSSProperties = {
@@ -490,9 +494,35 @@ export function DecisionBoard({
       </p>
 
       {msg && (
-        <p style={{ margin: 0, color: msgIsError ? "var(--bad)" : "var(--good)", fontSize: 13 }} role="status">
-          {msg}
-        </p>
+        <div
+          style={{
+            margin: 0,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: `1px solid ${msgIsError ? "var(--bad)" : "var(--border)"}`,
+            background: "var(--panel-2)",
+            color: msgIsError ? "var(--bad)" : "var(--good)",
+            fontSize: 13,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "flex-start",
+          }}
+          role="status"
+        >
+          <span>{msg}</span>
+          <button
+            type="button"
+            style={{ ...btn, padding: "2px 8px", flexShrink: 0 }}
+            onClick={() => {
+              setMsg(null);
+              setMsgIsError(false);
+            }}
+            aria-label="Dismiss message"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
 
       {/* Stage 4 — Decisions requiring management */}

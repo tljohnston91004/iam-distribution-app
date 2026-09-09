@@ -105,29 +105,91 @@ export type PrescribedActionPlan = {
   summaryLine: string;
 };
 
-/** Reject source-system placeholders incorrectly labeled as locations. */
-export function isValidLocationCode(raw: string | null | undefined): boolean {
+/** Reject source-system placeholders incorrectly labeled as locations — unless sole primary. */
+export type LocationCodeContext = {
+  /** Distinct trimmed non-blank location codes observed in this cycle's evidence. */
+  distinctLocationCodes: string[];
+};
+
+export function buildLocationCodeContext(
+  codes: Array<string | null | undefined>
+): LocationCodeContext {
+  const set = new Set<string>();
+  for (const c of codes) {
+    const v = c == null ? "" : String(c).trim();
+    if (v) set.add(v);
+  }
+  return { distinctLocationCodes: [...set].sort() };
+}
+
+function isPlaceholderLocationForm(v: string): boolean {
+  return /^(0+|n\/?a|null|none|unknown|-|#|company|all|hq)$/i.test(v);
+}
+
+/**
+ * Keystroke / single-site distributors often send location "0" as the only location.
+ * When every observed location code is that same placeholder, treat it as home/primary.
+ */
+export function isSolePrimaryLocation(
+  raw: string | null | undefined,
+  ctx?: LocationCodeContext | null
+): boolean {
+  if (!ctx?.distinctLocationCodes.length) return false;
+  const v = raw == null ? "" : String(raw).trim();
+  if (!v) return false;
+  if (ctx.distinctLocationCodes.length !== 1) return false;
+  if (ctx.distinctLocationCodes[0] !== v) return false;
+  return isPlaceholderLocationForm(v);
+}
+
+export function isValidLocationCode(
+  raw: string | null | undefined,
+  ctx?: LocationCodeContext | null
+): boolean {
   if (raw == null) return false;
   const v = String(raw).trim();
   if (!v) return false;
-  if (/^(0+|n\/?a|null|none|unknown|-|#|company|all|hq)$/i.test(v)) return false;
+  if (isPlaceholderLocationForm(v)) {
+    // Sole location in the dataset (e.g. Keystroke "0" for a one-site company) = home/primary.
+    return isSolePrimaryLocation(v, ctx);
+  }
   return true;
 }
 
 /** True when a location field is present but is a known invalid/default placeholder (e.g. "0"). */
-export function isInvalidPlaceholderLocation(raw: string | null | undefined): boolean {
+export function isInvalidPlaceholderLocation(
+  raw: string | null | undefined,
+  ctx?: LocationCodeContext | null
+): boolean {
   if (raw == null) return false;
   const v = String(raw).trim();
   if (!v) return false;
-  return !isValidLocationCode(v);
+  return !isValidLocationCode(v, ctx);
 }
 
-export function locationValidationMessage(raw: string | null | undefined): string {
+/** Display label for Board titles — "Home (primary)" when "0" is sole site. */
+export function locationDisplayLabel(
+  raw: string | null | undefined,
+  ctx?: LocationCodeContext | null
+): string {
   const v = raw == null ? "" : String(raw).trim();
-  if (!v || v === "0") {
+  if (!v) return "blank";
+  if (isSolePrimaryLocation(v, ctx)) return "Home (primary)";
+  return v;
+}
+
+export function locationValidationMessage(
+  raw: string | null | undefined,
+  ctx?: LocationCodeContext | null
+): string {
+  const v = raw == null ? "" : String(raw).trim();
+  if (isSolePrimaryLocation(v, ctx)) {
+    return `Location "${v}" accepted as the home/primary location (only location present in this dataset — typical for single-site Keystroke files).`;
+  }
+  if (!v || isPlaceholderLocationForm(v)) {
     return `Location "${v || "blank"}" is not a validated customer location — likely a source default, missing mapping, or company-level aggregate incorrectly labeled as a location. Present at company/portfolio level until corrected.`;
   }
-  if (!isValidLocationCode(v)) {
+  if (!isValidLocationCode(v, ctx)) {
     return `Location "${v}" failed validation and must not drive a location-level Recommendation.`;
   }
   return `Location "${v}" accepted as a location key.`;
@@ -144,7 +206,10 @@ function daysSince(date: Date | string | null | undefined): number | null {
  * Prescribe a SKU-level corrective action from available evidence.
  * When evidence is insufficient, returns management_review_needed / data_correction_review.
  */
-export function prescribeSkuAction(ev: SkuActionInput): SkuActionPrescription {
+export function prescribeSkuAction(
+  ev: SkuActionInput,
+  locationCtx?: LocationCodeContext | null
+): SkuActionPrescription {
   const gaps: string[] = [];
   const value = ev.inventoryValue ?? 0;
   const wos = ev.weeksOfSupply;
@@ -157,7 +222,7 @@ export function prescribeSkuAction(ev: SkuActionInput): SkuActionPrescription {
   if (!ev.classification) gaps.push("Inventory classification missing");
   if (ev.lastSoldDate == null) gaps.push("Last sale date missing");
   if (!hasDemand && ev.unitsSold == null) gaps.push("Demand history missing");
-  if (!isValidLocationCode(ev.locationCode ?? null) && ev.locationCode) {
+  if (!isValidLocationCode(ev.locationCode ?? null, locationCtx) && ev.locationCode) {
     gaps.push(`Location code "${ev.locationCode}" invalid or unknown`);
   }
 
@@ -385,8 +450,9 @@ export function buildPrescribedActionPlan(input: {
   segmentKey?: string | null;
   members: SkuActionInput[];
   locationValidation?: PrescribedActionPlan["affectedPopulation"]["locationValidation"];
+  locationCtx?: LocationCodeContext | null;
 }): PrescribedActionPlan {
-  const prescriptions = input.members.map(prescribeSkuAction);
+  const prescriptions = input.members.map((m) => prescribeSkuAction(m, input.locationCtx));
   const groups = groupPrescriptions(prescriptions);
   const totalValue = input.members.reduce((s, m) => s + (m.inventoryValue ?? 0), 0);
   const skuCount = input.members.length;
@@ -493,7 +559,7 @@ export function buildPrescribedActionPlan(input: {
     actionGroups: groups.map((g) => ({
       ...g,
       // Cap drill-down size in stored plan; full list remains available via member prescriptions in UI window
-      skus: g.skus.slice(0, 40),
+      skus: g.skus.slice(0, 25),
     })),
     executionSequence,
     ownerRole: needsDataFirst ? "Operations / Data steward" : "Inventory Manager (primary) with Sales & Purchasing support",

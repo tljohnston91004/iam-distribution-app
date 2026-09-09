@@ -3,10 +3,13 @@
  */
 
 import {
+  buildLocationCodeContext,
   buildPrescribedActionPlan,
   isValidLocationCode,
+  locationDisplayLabel,
   locationValidationMessage,
   prescribeSkuAction,
+  type LocationCodeContext,
   type PrescribedActionPlan,
   type SkuActionInput,
 } from "@/lib/iam/actions";
@@ -32,8 +35,13 @@ export function toActionInput(
  */
 export function attachPrescribedActionPlans(
   candidates: ScoredCandidate[],
-  evidenceBySku: Map<string, SkuActionInput>
+  evidenceBySku: Map<string, SkuActionInput>,
+  locationCtx?: LocationCodeContext | null
 ): ScoredCandidate[] {
+  const ctx =
+    locationCtx ??
+    buildLocationCodeContext([...evidenceBySku.values()].map((e) => e.locationCode));
+
   return candidates.map((c) => {
     const isSegment = c.detail?.analysisGrain === "segment";
     const memberIds = (c.detail?.memberSkuIds as string[] | undefined) ?? [];
@@ -66,24 +74,25 @@ export function attachPrescribedActionPlans(
             weeksOfSupply: null,
           },
         ],
+        locationCtx: ctx,
       });
-      return withPlan(c, stubPlan, members);
+      return withPlan(c, stubPlan, members, ctx);
     }
 
     let locationValidation: PrescribedActionPlan["affectedPopulation"]["locationValidation"];
     if (isSegment && c.detail.segmentType === "location") {
       const key = String(c.detail.segmentKey ?? "");
-      if (!isValidLocationCode(key)) {
+      if (!isValidLocationCode(key, ctx)) {
         locationValidation = {
           status: "invalid_or_unknown",
           rawValue: key,
-          message: locationValidationMessage(key),
+          message: locationValidationMessage(key, ctx),
         };
       } else {
         locationValidation = {
           status: "valid",
           rawValue: key,
-          message: locationValidationMessage(key),
+          message: locationValidationMessage(key, ctx),
         };
       }
     } else if (isSegment && c.detail.segmentType === "company") {
@@ -95,14 +104,18 @@ export function attachPrescribedActionPlans(
       };
     } else if (!isSegment) {
       const loc = members[0]?.locationCode;
-      if (loc && !isValidLocationCode(loc)) {
+      if (loc && !isValidLocationCode(loc, ctx)) {
         locationValidation = {
           status: "invalid_or_unknown",
           rawValue: loc,
-          message: locationValidationMessage(loc),
+          message: locationValidationMessage(loc, ctx),
         };
       } else if (loc) {
-        locationValidation = { status: "valid", rawValue: loc };
+        locationValidation = {
+          status: "valid",
+          rawValue: loc,
+          message: locationValidationMessage(loc, ctx),
+        };
       } else {
         locationValidation = { status: "not_applicable" };
       }
@@ -117,20 +130,27 @@ export function attachPrescribedActionPlans(
       segmentKey: isSegment ? String(c.detail.segmentKey ?? "") : null,
       members,
       locationValidation,
+      locationCtx: ctx,
     });
 
-    return withPlan(c, plan, members);
+    return withPlan(c, plan, members, ctx);
   });
 }
 
 function withPlan(
   c: ScoredCandidate,
   plan: PrescribedActionPlan,
-  members: SkuActionInput[]
+  members: SkuActionInput[],
+  locationCtx: LocationCodeContext
 ): ScoredCandidate {
-  const isSegment = c.detail?.analysisGrain === "segment";
-  const prescriptions = members.map(prescribeSkuAction);
-  const prescriptionBySku = new Map(prescriptions.map((p) => [p.skuOrItemId, p]));
+  const prescriptionBySku = new Map(
+    plan.actionGroups.flatMap((g) =>
+      g.skus.map((s) => [
+        s.skuOrItemId,
+        { actionLabel: g.actionLabel, actionCode: g.actionCode, reason: s.reason },
+      ])
+    )
+  );
 
   const memberSkus = (
     (c.detail.memberSkus as
@@ -144,20 +164,22 @@ function withPlan(
       | undefined) ??
     members.map((m) => ({
       skuOrItemId: m.skuOrItemId,
-      description: m.description ?? null,
+      description: null as string | null,
       inventoryValue: m.inventoryValue,
       weeksOfSupply: m.weeksOfSupply,
       recommendedAction: undefined as string | undefined,
     }))
-  ).map((m) => {
-    const p = prescriptionBySku.get(m.skuOrItemId);
-    return {
-      ...m,
-      recommendedAction: p?.actionLabel ?? m.recommendedAction ?? "Management review",
-      prescribedActionCode: p?.actionCode ?? null,
-      prescribedActionReason: p?.reason ?? null,
-    };
-  });
+  )
+    .map((m) => {
+      const p = prescriptionBySku.get(m.skuOrItemId);
+      return {
+        ...m,
+        recommendedAction: p?.actionLabel ?? m.recommendedAction ?? "Management review",
+        prescribedActionCode: p?.actionCode ?? null,
+        prescribedActionReason: p?.reason ?? null,
+      };
+    })
+    .slice(0, 80);
 
   let candidateTitle = c.candidateTitle;
   if (
@@ -165,10 +187,13 @@ function withPlan(
     c.actionType.includes("Replenishment")
   ) {
     const value = c.estimatedCashImpact;
-    if (isSegment) {
+    if (c.detail?.analysisGrain === "segment") {
       candidateTitle = `Reduce ${usd(value)} of trapped cash across ${plan.affectedPopulation.skuCount} excess SKUs`;
       if (c.detail.segmentType === "company") {
         candidateTitle += ` (company level — location unmapped)`;
+      } else if (c.detail.segmentType === "location" && c.detail.segmentKey) {
+        const label = locationDisplayLabel(String(c.detail.segmentKey), locationCtx);
+        candidateTitle += ` · location "${label}"`;
       } else if (c.detail.segmentType && c.detail.segmentKey) {
         candidateTitle += ` · ${String(c.detail.segmentType)} "${String(c.detail.segmentKey)}"`;
       }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usd } from "@/lib/format";
 import { parseExplainability, requiredActionHint, type BoardPersona } from "@/lib/iam/board/types";
+import { formatCoiBoardDisplay } from "@/lib/iam/coi/display";
 
 type Detail = {
   id: string;
@@ -21,6 +22,23 @@ type Detail = {
   estimatedFinancialImpact: number | null;
   estimatedCashImpact: number | null;
   costOfInaction: number | null;
+  coiBoardDisplayLine?: string | null;
+  coiCalculationStatus?: string | null;
+  coiCalculationExplanation?: string | null;
+  coiConfidenceLevel?: string | null;
+  coiHorizonDays?: number | null;
+  coiHorizonSource?: string | null;
+  recommendedTargetPeriod?: string | null;
+  managementAdjustedTargetPeriod?: string | null;
+  managementAdjustmentReason?: string | null;
+  carryingCostComponent?: number | null;
+  preventableLossComponent?: number | null;
+  annualCarryingCostRateUsed?: number | null;
+  affectedInventoryValueForCoi?: number | null;
+  originalEstimatedCoi?: number | null;
+  revisedEstimatedCoi?: number | null;
+  companyCarryingCostRateConfigured?: boolean | null;
+  companyConfigHref?: string | null;
   explainabilityJson: string | null;
   ownerUserId: string | null;
   ownerName: string | null;
@@ -166,7 +184,16 @@ export function RecommendationDetailClient({
         <Tile label="Priority score" value={detail.priorityScore?.toFixed(1) ?? "—"} />
         <Tile label="Cash" value={detail.estimatedCashImpact != null ? usd(detail.estimatedCashImpact) : "—"} />
         <Tile label="Financial" value={detail.estimatedFinancialImpact != null ? usd(detail.estimatedFinancialImpact) : "—"} />
-        <Tile label="COI" value={detail.costOfInaction != null ? usd(detail.costOfInaction) : "Not available"} />
+        <Tile
+          label="COI"
+          value={
+            detail.costOfInaction != null
+              ? usd(detail.costOfInaction)
+              : detail.companyCarryingCostRateConfigured === false
+                ? "Not configured"
+                : "—"
+          }
+        />
         <Tile label="Confidence" value={detail.confidence} />
         <Tile
           label="Owner"
@@ -176,6 +203,88 @@ export function RecommendationDetailClient({
               : "Unassigned"
           }
         />
+      </section>
+
+      <section style={panel}>
+        <h2 style={h2}>Cost of Inaction</h2>
+        <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.45 }}>
+          {formatCoiBoardDisplay({
+            costOfInaction: detail.costOfInaction,
+            coiBoardDisplayLine: detail.coiBoardDisplayLine,
+            coiCalculationStatus: detail.coiCalculationStatus,
+            coiCalculationExplanation: detail.coiCalculationExplanation,
+            companyCarryingCostRateConfigured: detail.companyCarryingCostRateConfigured,
+          })}
+        </p>
+        {(detail.coiCalculationStatus === "unavailable" ||
+          (detail.costOfInaction == null && detail.companyCarryingCostRateConfigured === false)) &&
+          detail.companyConfigHref && (
+            <p style={{ margin: "0 0 12px", fontSize: 13 }}>
+              <Link href={detail.companyConfigHref} style={{ color: "var(--accent)" }}>
+                Configure Annual Inventory Carrying-Cost Rate →
+              </Link>
+            </p>
+          )}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+          <Tile
+            label="Target period"
+            value={
+              detail.managementAdjustedTargetPeriod ??
+              detail.recommendedTargetPeriod ??
+              (detail.coiHorizonDays != null ? `${detail.coiHorizonDays} days` : "—")
+            }
+            nested
+          />
+          <Tile label="Horizon source" value={detail.coiHorizonSource ?? "—"} nested />
+          <Tile
+            label="Annual carrying-cost rate"
+            value={
+              detail.annualCarryingCostRateUsed != null
+                ? `${(detail.annualCarryingCostRateUsed * 100).toFixed(1)}%`
+                : "Unavailable"
+            }
+            nested
+          />
+          <Tile
+            label="Carrying-cost component"
+            value={detail.carryingCostComponent != null ? usd(detail.carryingCostComponent) : "—"}
+            nested
+          />
+          <Tile
+            label="Preventable-loss component"
+            value={detail.preventableLossComponent != null ? usd(detail.preventableLossComponent) : "—"}
+            nested
+          />
+          <Tile
+            label="Affected inventory for COI"
+            value={
+              detail.affectedInventoryValueForCoi != null
+                ? usd(detail.affectedInventoryValueForCoi)
+                : "—"
+            }
+            nested
+          />
+          <Tile label="COI confidence" value={detail.coiConfidenceLevel ?? "—"} nested />
+          {(detail.originalEstimatedCoi != null || detail.revisedEstimatedCoi != null) && (
+            <Tile
+              label="Original / revised COI"
+              value={`${detail.originalEstimatedCoi != null ? usd(detail.originalEstimatedCoi) : "—"} / ${
+                detail.revisedEstimatedCoi != null ? usd(detail.revisedEstimatedCoi) : "—"
+              }`}
+              nested
+            />
+          )}
+        </div>
+        {detail.coiCalculationExplanation && (
+          <p style={{ margin: "12px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
+            {detail.coiCalculationExplanation}
+          </p>
+        )}
+        {detail.managementAdjustmentReason && (
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted)" }}>
+            Management adjustment: {detail.managementAdjustmentReason}
+          </p>
+        )}
       </section>
 
       {dataQualityWarning && (
@@ -188,8 +297,10 @@ export function RecommendationDetailClient({
         <h2 style={h2}>Prescribed Action Plan</h2>
         {!plan ? (
           <p style={{ color: "var(--muted)", fontSize: 13 }}>
-            No prescribed action plan on this Recommendation. Re-run Calculate after this release to
-            generate required action content.
+            No Prescribed Action Plan on this Recommendation. Open the <strong>newest</strong> Review
+            Cycle, then Operations → Approve evidence → <strong>Calculate · Score · Present</strong>.
+            Older cycles created before this release (for example titles like Location &quot;0&quot;) will
+            not have plans until recalculated.
           </p>
         ) : (
           <div style={{ fontSize: 13, display: "grid", gap: 12 }}>
@@ -459,11 +570,18 @@ export function RecommendationDetailClient({
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+function Tile({ label, value, nested = false }: { label: string; value: string; nested?: boolean }) {
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+    <div
+      style={{
+        background: nested ? "var(--panel-2)" : "var(--panel)",
+        border: nested ? "none" : "1px solid var(--border)",
+        borderRadius: 10,
+        padding: 12,
+      }}
+    >
       <div style={{ fontSize: 11, color: "var(--muted)" }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
+      <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.35, wordBreak: "break-word" }}>{value}</div>
     </div>
   );
 }

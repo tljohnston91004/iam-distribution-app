@@ -143,7 +143,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
-    return NextResponse.json({ status: "ok", action, payload: result });
+    return NextResponse.json({
+      status: "ok",
+      action,
+      payload: slimTransitionPayload(result),
+    });
   } catch (err) {
     console.error(err);
     if (err instanceof LifecycleTransitionError) {
@@ -156,4 +160,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       { status: 500 }
     );
   }
+}
+
+/** Avoid returning multi-100KB explainability blobs on every Present/Approve response. */
+function slimTransitionPayload(result: unknown): Record<string, unknown> | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return {
+    id: r.id,
+    lifecycleState: r.lifecycleState,
+    presentationCategory: r.presentationCategory,
+    presentationRank: r.presentationRank,
+    title: r.title,
+    opportunityKey: r.opportunityKey,
+  };
 }

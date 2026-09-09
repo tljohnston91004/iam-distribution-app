@@ -17,6 +17,7 @@ import {
 import { assertEvidenceApprovedForAnalysis } from "@/lib/iam/ingestion";
 import { scoreAndPresentReviewCycle } from "@/lib/iam/presentation";
 import { attachPrescribedActionPlans, type SkuActionInput } from "@/lib/iam/actions";
+import { applyCoiToReviewCycle } from "@/lib/iam/coi";
 import { identifyCandidatesForSku, buildSkuEvidence, rankAllPriorityCandidates } from "./ranking";
 import {
   applySegmentDoubleCountGuard,
@@ -254,6 +255,9 @@ export async function runIamCalculatePipeline(iamRunId: string) {
     performedBy: "calculate-pipeline",
   });
 
+  // Apply COI before score/present so Trust stories and Board metrics include it.
+  // Scoring merges explainability over prior JSON (preserves costOfInactionDetail).
+  const coi = await applyCoiToReviewCycle(iamRunId);
   const presented = await scoreAndPresentReviewCycle(iamRunId);
 
   const hasInventory = selectedInventory.length > 0;
@@ -273,7 +277,7 @@ export async function runIamCalculatePipeline(iamRunId: string) {
       entityType: "IamRun",
       entityId: iamRunId,
       action: "calculated_scored_presented",
-      detail: `interimSubmitted=${packageItems.length} created=${upsertResult.createdCount} updated=${upsertResult.updatedCount} sd17Enriched=${upsertResult.enrichedModuleCount} skippedDup=${upsertResult.skippedDuplicateInterimCount} scored=${presented.scoredCount} profile=${presented.scoringProfileId} active=${presented.lanes.active_priority.length} holdover=${presented.lanes.holdover.length}`,
+      detail: `interimSubmitted=${packageItems.length} created=${upsertResult.createdCount} updated=${upsertResult.updatedCount} sd17Enriched=${upsertResult.enrichedModuleCount} skippedDup=${upsertResult.skippedDuplicateInterimCount} scored=${presented.scoredCount} profile=${presented.scoringProfileId} active=${presented.lanes.active_priority.length} holdover=${presented.lanes.holdover.length} coiCalc=${coi.calculated} coiPartial=${coi.partial} coiUnavailable=${coi.unavailable}`,
     },
   });
 
@@ -287,5 +291,6 @@ export async function runIamCalculatePipeline(iamRunId: string) {
     scoredCount: presented.scoredCount,
     scoringProfileId: presented.scoringProfileId,
     presentationLanes: presented.lanes,
+    coi,
   };
 }

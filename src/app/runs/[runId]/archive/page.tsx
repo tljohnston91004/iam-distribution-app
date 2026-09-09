@@ -41,7 +41,7 @@ export default async function ArchivePage({ params }: { params: Promise<{ runId:
         </p>
       </header>
 
-      <IamRunNav runId={runId} active="archive" />
+      <IamRunNav runId={runId} companyId={run.companyId} active="archive" />
 
       <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
         {archived.length === 0 && (

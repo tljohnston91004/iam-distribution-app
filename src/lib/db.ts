@@ -17,6 +17,8 @@ export async function ensureDefaultCompany() {
   if (existing) return existing;
 
   return prisma.company.create({
-    data: { name: "Pilot Distributor" },
+    data: {
+      name: "Pilot Distributor",
+    },
   });
 }

@@ -29,11 +29,40 @@ model Company {
   trailing52WeekRevenue      Float? @map("trailing_52_week_revenue")
   trailing12MonthGrossProfit Float? @map("trailing_12_month_gross_profit")
   totalInventoryBookValue    Float? @map("total_inventory_book_value")
+  /// Annual inventory carrying-cost rate as decimal (e.g. 0.24 = 24%). Per-company config — never invent in UI.
+  annualCarryingCostRate     Float? @map("annual_carrying_cost_rate")
+  carryingCostRateEffectiveDate DateTime? @map("carrying_cost_rate_effective_date")
+  /// Company-provided rate | Calculated company rate | Management-approved assumption | Default onboarding assumption
+  carryingCostRateSource     String? @map("carrying_cost_rate_source")
+  carryingCostRateNote       String? @map("carrying_cost_rate_note")
+  carryingCostRatePermission String? @map("carrying_cost_rate_permission")
+  carryingCostRateUpdatedBy  String? @map("carrying_cost_rate_updated_by")
+  carryingCostRateUpdatedAt  DateTime? @map("carrying_cost_rate_updated_at")
+  /// Absolute max allowed decimal (default 1.0 = 100%).
+  carryingCostRateMaxAllowed Float? @map("carrying_cost_rate_max_allowed")
   createdAt    DateTime @default(now()) @map("created_at")
 
   runs IamRun[]
+  configurationChanges CompanyConfigurationChange[]
 
   @@map("companies")
+}
+
+/// Company-level configuration audit (not tied to a single Review Cycle).
+model CompanyConfigurationChange {
+  id          String   @id @default(uuid()) @map("company_configuration_change_id")
+  companyId   String   @map("company_id")
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fieldKey    String   @map("field_key")
+  action      String
+  performedBy String   @map("performed_by")
+  performedAt DateTime @default(now()) @map("performed_at")
+  beforeJson  String?  @map("before_json")
+  afterJson   String?  @map("after_json")
+  detail      String?
+
+  @@index([companyId, fieldKey, performedAt])
+  @@map("company_configuration_changes")
 }
 
 /// Review Cycle (IAM-007) — table name retained as iam_runs for V1.0 compatibility (Phase 1).
@@ -279,7 +308,31 @@ model Recommendation {
   confidence               String   @default("Medium") @map("confidence")
   estimatedFinancialImpact Float?   @map("estimated_financial_impact")
   estimatedCashImpact      Float?   @map("estimated_cash_impact")
+  /// Estimated Cost of Inaction (decision-support; not a scoring factor).
   costOfInaction           Float?   @map("cost_of_inaction")
+  /// COI structured fields (PO-approved interim formula).
+  coiHorizonValue          Float?   @map("coi_horizon_value")
+  coiHorizonUnit           String?  @map("coi_horizon_unit") // days | weeks | months
+  coiHorizonDays           Int?     @map("coi_horizon_days")
+  coiHorizonSource         String?  @map("coi_horizon_source")
+  recommendedTargetPeriod  String?  @map("recommended_target_period")
+  recommendedTargetEndDate DateTime? @map("recommended_target_end_date")
+  managementAdjustedTargetPeriod String? @map("management_adjusted_target_period")
+  managementAdjustmentReason     String? @map("management_adjustment_reason")
+  managementAdjustedBy           String? @map("management_adjusted_by")
+  managementAdjustedAt           DateTime? @map("management_adjusted_at")
+  affectedInventoryValueForCoi   Float? @map("affected_inventory_value_for_coi")
+  annualCarryingCostRateUsed     Float? @map("annual_carrying_cost_rate_used")
+  carryingCostComponent          Float? @map("carrying_cost_component")
+  preventableLossComponent       Float? @map("preventable_loss_component")
+  otherCoiComponent              Float? @map("other_coi_component")
+  coiConfidenceLevel             String? @map("coi_confidence_level")
+  coiCalculationStatus           String? @map("coi_calculation_status") // calculated | partial | unavailable
+  coiCalculationExplanation      String? @map("coi_calculation_explanation")
+  coiBoardDisplayLine            String? @map("coi_board_display_line")
+  originalEstimatedCoi           Float? @map("original_estimated_coi")
+  revisedEstimatedCoi            Float? @map("revised_estimated_coi")
+  coiDetailJson                  String? @map("coi_detail_json")
   /// Phase 4 — authoritative priority from scoring service (interim profile until SD-1).
   priorityScore            Float?   @map("priority_score")
   /// Phase 4 — e.g. interim_v1_cash_led (A-005).

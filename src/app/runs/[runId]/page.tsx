@@ -94,7 +94,7 @@ export default async function DecisionBoardPage({
         </div>
       </header>
 
-      <IamRunNav runId={runId} active="dashboard" />
+      <IamRunNav runId={runId} companyId={run.companyId} active="dashboard" />
 
       <DecisionBoard
         runId={runId}

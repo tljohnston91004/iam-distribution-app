@@ -2,12 +2,14 @@ import Link from "next/link";
 
 export function IamRunNav({
   runId,
+  companyId,
   active,
 }: {
   runId: string;
+  companyId?: string;
   active: "dashboard" | "assigned" | "archive";
 }) {
-  const link = (key: typeof active, href: string, label: string) => (
+  const link = (key: typeof active | "config", href: string, label: string) => (
     <Link
       href={href}
       style={{
@@ -30,6 +32,13 @@ export function IamRunNav({
       {link("dashboard", `/runs/${runId}`, "Decision Board")}
       {link("assigned", `/runs/${runId}/assigned`, "My Assigned")}
       {link("archive", `/runs/${runId}/archive`, "Archive / History")}
+      {companyId
+        ? link(
+            "config",
+            `/companies/${companyId}/config?returnTo=${encodeURIComponent(`/runs/${runId}`)}#carrying-cost-rate`,
+            "Company config"
+          )
+        : null}
     </nav>
   );
 }

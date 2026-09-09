@@ -24,6 +24,19 @@ export type BoardRecommendation = {
   estimatedFinancialImpact: number | null;
   estimatedCashImpact: number | null;
   costOfInaction: number | null;
+  coiBoardDisplayLine?: string | null;
+  coiCalculationStatus?: string | null;
+  coiCalculationExplanation?: string | null;
+  coiConfidenceLevel?: string | null;
+  coiHorizonDays?: number | null;
+  carryingCostComponent?: number | null;
+  preventableLossComponent?: number | null;
+  annualCarryingCostRateUsed?: number | null;
+  originalEstimatedCoi?: number | null;
+  revisedEstimatedCoi?: number | null;
+  /** From company health — used when COI not yet calculated. */
+  companyCarryingCostRateConfigured?: boolean | null;
+  companyConfigHref?: string | null;
   explainabilityJson: string | null;
   ownerUserId: string | null;
   ownerName: string | null;

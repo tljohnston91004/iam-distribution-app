@@ -11,7 +11,7 @@ import {
   evidenceStrengthFromConfidence,
   readinessFromConfidence,
 } from "./confidence";
-import { isInvalidPlaceholderLocation, isValidLocationCode } from "@/lib/iam/actions";
+import { isInvalidPlaceholderLocation, isValidLocationCode, buildLocationCodeContext } from "@/lib/iam/actions";
 import { SERVICE_RISK_OVERRIDE_MIN_RATIO, V1_RANKING_WEIGHTS } from "../constants";
 import type { ConfidenceLevel, ScoredCandidate, SkuEvidence } from "../types";
 
@@ -37,7 +37,11 @@ export type SkuEvidenceWithDims = SkuEvidence & {
   productGroup?: string | null;
 };
 
-function dimValue(ev: SkuEvidenceWithDims, dim: SegmentDimension): string | null {
+function dimValue(
+  ev: SkuEvidenceWithDims,
+  dim: SegmentDimension,
+  locationCtx: ReturnType<typeof buildLocationCodeContext>
+): string | null {
   if (dim === "company") return null; // handled separately
   const raw =
     dim === "classification"
@@ -53,10 +57,10 @@ function dimValue(ev: SkuEvidenceWithDims, dim: SegmentDimension): string | null
               : ev.productGroup;
   const v = raw?.trim();
   if (!v) return null;
-  // Location: only validated customer locations (never "0", blank, N/A, etc.)
-  if (dim === "location" && !isValidLocationCode(v)) return null;
+  // Location: validated customer locations, or sole Keystroke "0" treated as home/primary.
+  if (dim === "location" && !isValidLocationCode(v, locationCtx)) return null;
   // Other dims: ignore non-meaningful placeholder keys
-  if (/^(0+|n\/?a|null|none|unknown|-|#)$/i.test(v)) return null;
+  if (dim !== "location" && /^(0+|n\/?a|null|none|unknown|-|#)$/i.test(v)) return null;
   return v;
 }
 
@@ -156,10 +160,12 @@ function buildSegmentCandidate(
  * Build segment Trapped Cash Review candidates where aggregate excess exposure
  * materially exceeds typical single-SKU noise.
  *
- * Location "0" / invalid location codes never produce location-level Recommendations.
- * Those SKUs roll into a company/portfolio priority with a data-quality warning.
+ * Location "0" is treated as home/primary when it is the only location in the dataset
+ * (common for single-site Keystroke files). Otherwise invalid placeholders do not create
+ * location-level Recommendations and roll into a company/portfolio priority with a warning.
  */
 export function identifySegmentCandidates(skuEvidence: SkuEvidenceWithDims[]): ScoredCandidate[] {
+  const locationCtx = buildLocationCodeContext(skuEvidence.map((e) => e.locationCode));
   const dims: SegmentDimension[] = [
     "classification",
     "vendor",
@@ -173,7 +179,7 @@ export function identifySegmentCandidates(skuEvidence: SkuEvidenceWithDims[]): S
   for (const dim of dims) {
     const groups = new Map<string, SkuEvidenceWithDims[]>();
     for (const ev of skuEvidence) {
-      const key = dimValue(ev, dim);
+      const key = dimValue(ev, dim, locationCtx);
       if (!key) continue;
       if (!isTrapped(ev)) continue;
       const list = groups.get(key) ?? [];
@@ -187,10 +193,9 @@ export function identifySegmentCandidates(skuEvidence: SkuEvidenceWithDims[]): S
     }
   }
 
-  // Company-level: trapped cash with explicit invalid location placeholders (e.g. Keystroke "0").
-  // Missing location alone does not create this segment (those SKUs still aggregate by classification/vendor/etc.).
+  // Company-level: trapped cash with invalid location placeholders when NOT the sole primary site.
   const unmapped = skuEvidence.filter(
-    (ev) => isTrapped(ev) && isInvalidPlaceholderLocation(ev.locationCode ?? null)
+    (ev) => isTrapped(ev) && isInvalidPlaceholderLocation(ev.locationCode ?? null, locationCtx)
   );
   if (unmapped.length >= MIN_SEGMENT_SKUS) {
     const cand = buildSegmentCandidate("company", "unmapped_location", unmapped, {
