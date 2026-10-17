@@ -1,14 +1,19 @@
 :root {
-  --bg: #0b1220;
-  --panel: #131c2e;
-  --panel-2: #1b2840;
-  --border: #2a3a57;
-  --text: #e7edf7;
-  --muted: #9fb0c9;
-  --accent: #6bcf9a;
-  --good: #3ecf8e;
-  --warn: #f2b53c;
-  --bad: #ff6b6b;
+  --bg: #eef2f7;
+  --panel: #ffffff;
+  --panel-2: #f5f8fc;
+  --border: #d0dae8;
+  --text: #0f2744;
+  --muted: #5a6b82;
+  --accent: #1a4a8a;
+  --accent-soft: #e7f0fb;
+  --good: #1f7a4c;
+  --warn: #b45309;
+  --bad: #b91c1c;
+  --ryg-gray-bg: #e8eef5;
+  --ryg-yellow-bg: #fff4d6;
+  --ryg-red-bg: #fde8e8;
+  --ryg-green-bg: #e6f6ec;
 }
 
 * {
@@ -21,8 +26,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
-    sans-serif;
+  font-family: "IBM Plex Sans", "Segoe UI", ui-sans-serif, sans-serif;
   line-height: 1.5;
 }
 
@@ -33,4 +37,11 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }

@@ -45,7 +45,7 @@ export default async function Dashboard() {
             href="/runs/new"
             style={{
               background: "var(--accent)",
-              color: "#04122a",
+              color: "#fff",
               borderRadius: 8,
               padding: "9px 16px",
               fontWeight: 600,

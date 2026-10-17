@@ -71,27 +71,22 @@ export default async function DecisionBoardPage({
     activeCount: activeLs.length,
   });
 
+  const reviewWeekLabel = `${shortDate(run.reviewWeekStart)} – ${shortDate(run.reviewWeekEnd)}`;
+
   return (
-    <main style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
-      <Link href="/" style={{ fontSize: 13, color: "var(--muted)" }}>
-        ← All runs
+    <main style={{ maxWidth: 980, margin: "0 auto", padding: "28px 20px 48px" }}>
+      <Link href="/" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }}>
+        ← Back to IAM runs
       </Link>
 
-      <header style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 1 }}>
-            Decision Board
-          </p>
-          <h1 style={{ fontSize: 26, margin: "4px 0" }}>{run.runName}</h1>
-          <p style={{ color: "var(--muted)", margin: 0 }}>
-            {run.company.name} · {shortDate(run.reviewWeekStart)} → {shortDate(run.reviewWeekEnd)}
-          </p>
-        </div>
-        <div style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
-          <div>Run: {run.runStatus}</div>
-          <div>Cycle: {run.cycleStatus}</div>
-          <div>Readiness: {run.readinessStatus}</div>
-        </div>
+      <header style={{ marginTop: 10 }}>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+          Decision Board · company home
+        </p>
+        <h1 style={{ fontSize: 28, margin: "4px 0 0", fontWeight: 700 }}>{run.company.name}</h1>
+        <p style={{ color: "var(--muted)", margin: "4px 0 0", fontSize: 14 }}>
+          {run.runName} · {reviewWeekLabel}
+        </p>
       </header>
 
       <IamRunNav runId={runId} companyId={run.companyId} active="dashboard" />
@@ -105,6 +100,7 @@ export default async function DecisionBoardPage({
         initialPersona={persona}
         evidenceCounts={run._count}
         oecConsumed={oecMeasure.consumed}
+        reviewWeekLabel={reviewWeekLabel}
       />
     </main>
   );

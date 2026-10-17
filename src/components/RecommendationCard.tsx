@@ -5,28 +5,38 @@ import { useState } from "react";
 import { usd } from "@/lib/format";
 import {
   primaryCtaLabel,
-  requiredActionHint,
   type BoardPersona,
   type BoardRecommendation,
 } from "@/lib/iam/board/types";
+import {
+  actSkipCopy,
+  lookThisWeekRole,
+  priorityBand,
+} from "@/lib/iam/board/dpos-copy";
 import { isActivePriorityCategory } from "@/lib/iam/presentation/rules";
 
-const btn: React.CSSProperties = {
-  background: "var(--panel-2)",
-  border: "1px solid var(--border)",
+const outlineBtn: React.CSSProperties = {
+  background: "var(--panel)",
+  border: "1px solid var(--accent)",
   borderRadius: 8,
-  padding: "6px 10px",
-  color: "var(--text)",
+  padding: "8px 14px",
+  color: "var(--accent)",
   cursor: "pointer",
-  fontSize: 12,
+  fontSize: 13,
+  fontWeight: 600,
+};
+
+const ghostBtn: React.CSSProperties = {
+  ...outlineBtn,
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  fontWeight: 500,
 };
 
 const primaryBtn: React.CSSProperties = {
-  ...btn,
+  ...outlineBtn,
   background: "var(--accent)",
-  color: "#04122a",
-  fontWeight: 600,
-  border: "none",
+  color: "#fff",
 };
 
 type FormKind = "defer" | "reject" | "assign" | "pause" | "escalate" | "progress" | null;
@@ -60,9 +70,14 @@ export function RecommendationCard({
   const [expected, setExpected] = useState(
     rec.expectedCompletionAt ? rec.expectedCompletionAt.slice(0, 10) : ""
   );
+  const [showWhy, setShowWhy] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
-  const showTrust = isActivePriorityCategory(rec.presentationCategory) || rec.presentationCategory === "holdover";
+  const copy = actSkipCopy(rec);
+  const band = priorityBand(rec.priorityScore);
+  const equalPriority =
+    isActivePriorityCategory(rec.presentationCategory) ||
+    rec.lifecycleState === "Management Review";
 
   let memberSkus: {
     skuOrItemId: string;
@@ -106,8 +121,11 @@ export function RecommendationCard({
     }
   }
 
-  function runPrimary() {
-    if (!primary) return;
+  function takeThisOn() {
+    if (!primary) {
+      setShowWhy(true);
+      return;
+    }
     if (primary === "Present for review") onAction(rec.id, "present_for_review");
     else if (primary === "Approve") onAction(rec.id, "approve");
     else if (primary === "Reactivate") onAction(rec.id, "reactivate_defer");
@@ -117,6 +135,17 @@ export function RecommendationCard({
     else if (primary === "Resume") onAction(rec.id, "resume");
     else if (primary === "Update progress") setForm("progress");
     else if (primary === "Validate outcome") onAction(rec.id, "start_outcome_validation");
+  }
+
+  function notThisWeek() {
+    if (rec.presentationCategory === "deferred") return;
+    if (isExecOrOps && (rec.lifecycleState === "Management Review" || rec.lifecycleState === "Identified")) {
+      setForm("defer");
+      setReason("Not this week — capacity / timing");
+      return;
+    }
+    setForm("defer");
+    setReason("Not this week — capacity / timing");
   }
 
   async function saveProgress() {
@@ -138,107 +167,152 @@ export function RecommendationCard({
     onAction(rec.id, "__refresh__");
   }
 
+  if (compact) {
+    return (
+      <article
+        style={{
+          background: "var(--panel)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "14px 16px",
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <strong style={{ fontSize: 14 }}>{rec.title}</strong>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            {rec.lifecycleState}
+            {cash != null ? ` · ${usd(cash)}` : ""}
+          </div>
+        </div>
+        <Link href={`/runs/${runId}/recommendations/${rec.id}?viewAs=${persona}`} style={ghostBtn}>
+          Details
+        </Link>
+      </article>
+    );
+  }
+
   return (
     <article
       style={{
         background: "var(--panel)",
         border: "1px solid var(--border)",
         borderRadius: 12,
-        padding: 16,
+        padding: "20px 22px",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 12,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-        <div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-            <span style={chip(rec.presentationCategory)}>{labelCat(rec.presentationCategory)}</span>
-            <span style={chip("ls")}>{rec.lifecycleState}</span>
-            {rec.lifecycleState === "Awaiting Acceptance" && !rec.ownerAccepted && (
-              <span style={chip("warn")}>Waiting owner acceptance</span>
-            )}
-            {rec.generationPath === "interim_evidence" && (
-              <span style={chip("interim")}>Interim evidence</span>
-            )}
-            {rec.presentationRank != null && isActivePriorityCategory(rec.presentationCategory) && (
-              <span style={chip("rank")}>#{rec.presentationRank}</span>
-            )}
-            {rec.agingAdvisory && <span style={chip("warn")}>Aging advisory</span>}
-          </div>
-          <h3 style={{ margin: 0, fontSize: 16 }}>{rec.title}</h3>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>
-            {rec.recommendationType}
-            {rec.analysisGrain === "segment"
-              ? ` · Segment (${rec.segmentType ?? "group"}: ${rec.segmentKey ?? "—"}) · ${rec.affectedSkuCount ?? "?"} SKUs`
-              : rec.skuOrItemId
-                ? ` · ${rec.skuOrItemId}`
-                : ""}{" "}
-            · Source: {rec.sourceModule}
+      {equalPriority && (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Equal management priority</p>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text)", lineHeight: 1.25 }}>
+            {rec.title}
+            {cash != null && !rec.title.includes(usd(cash).replace(/\u00a0/g, " ")) && !rec.title.includes(String(Math.round(cash)))
+              ? ` — ${usd(cash)}`
+              : ""}
+          </h3>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
+            Priority band: {band}
+            {rec.priorityScore != null ? ` · score ${rec.priorityScore.toFixed(1)}` : ""}
+            {rec.presentationRank != null && isActivePriorityCategory(rec.presentationCategory)
+              ? ` · #${rec.presentationRank}`
+              : ""}
           </p>
         </div>
-        <div style={{ textAlign: "right", fontSize: 12, color: "var(--muted)", minWidth: 100 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>
-            {rec.priorityScore != null ? rec.priorityScore.toFixed(1) : "—"}
-          </div>
-          <div>Priority</div>
-        </div>
-      </div>
-
-      {showTrust && !compact && (
-        <div
+        <span
           style={{
-            display: "grid",
-            gap: 6,
-            fontSize: 13,
-            background: "var(--panel-2)",
-            borderRadius: 8,
-            padding: 12,
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: 0.4,
+            padding: "4px 8px",
+            borderRadius: 6,
+            border: "1px solid var(--border)",
+            color: "var(--muted)",
+            whiteSpace: "nowrap",
           }}
         >
-          <TrustLine label="What" text={rec.storyWhat} />
-          <TrustLine label="Why" text={rec.storyWhy} />
-          <TrustLine label="Why now" text={rec.storyWhyNow} />
-          <TrustLine label="Expected result" text={rec.storyExpectedResult} />
-          <TrustLine label="Confidence" text={rec.confidenceNarrative ?? rec.confidence} />
-        </div>
-      )}
+          {rec.lifecycleState}
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 10,
+          fontSize: 13,
+        }}
+      >
+        <Metric
+          label="Cash / financial impact"
+          value={cash != null ? usd(cash) : "Not quantified"}
+        />
+        <Metric
+          label="Cost of inaction"
+          value={
+            rec.costOfInaction != null
+              ? usd(rec.costOfInaction)
+              : rec.companyCarryingCostRateConfigured === false
+                ? "Rate not configured"
+                : "Not available"
+          }
+        />
+        {rec.analysisGrain === "segment" && (
+          <Metric
+            label="Affected SKUs"
+            value={String(rec.affectedSkuCount ?? (memberSkus.length > 0 ? memberSkus.length : "—"))}
+          />
+        )}
+        <Metric
+          label="Source"
+          value={`${rec.sourceModule}${rec.generationPath === "interim_evidence" ? " · interim" : ""}`}
+        />
+      </div>
 
       {dataQualityWarning && (
         <p style={{ margin: 0, fontSize: 12, color: "var(--warn)" }}>
-          Data quality: {dataQualityWarning}
+          Critical or warning data gaps may reduce confidence. {dataQualityWarning}
         </p>
       )}
+
+      <div style={{ fontSize: 14, color: "var(--text)", display: "flex", flexDirection: "column", gap: 10 }}>
+        <p style={{ margin: 0 }}>
+          <strong>What this means:</strong> {copy.means}
+        </p>
+        <p style={{ margin: 0 }}>
+          <strong>Act.</strong> {copy.act.replace(/^Act\.\s*/i, "")}
+        </p>
+        <p style={{ margin: 0 }}>
+          <strong>Skip.</strong> {copy.skip.replace(/^Skip\.\s*/i, "")}
+        </p>
+      </div>
 
       {(recommendedManagementAction || planSummary) && (
         <div
           style={{
-            fontSize: compact ? 12 : 13,
+            fontSize: 13,
             background: "var(--panel-2)",
             borderRadius: 8,
-            padding: compact ? "8px 10px" : 12,
+            padding: 12,
             borderLeft: "3px solid var(--accent)",
           }}
         >
-          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
-            Prescribed Action Plan
-          </div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Prescribed Action Plan</div>
           <div style={{ fontWeight: 600 }}>{recommendedManagementAction ?? planSummary}</div>
-          <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
-            Summary only — open <strong>Details</strong> for the full Prescribed Action Plan (next
-            steps, sequence, owners, measures, risks, and SKU-level actions).
-          </p>
-          {!compact && planGroups.length > 0 && (
-            <button
-              type="button"
-              style={{ ...btn, marginTop: 8 }}
-              onClick={() => setShowPlan((v) => !v)}
-              aria-expanded={showPlan}
-            >
+          {planGroups.length > 0 && (
+            <button type="button" style={{ ...ghostBtn, marginTop: 8 }} onClick={() => setShowPlan((v) => !v)}>
               {showPlan ? "Hide" : "Show"} action groups ({planGroups.length})
             </button>
           )}
-          {!compact && showPlan && (
+          {showPlan && (
             <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: "var(--muted)", fontSize: 12 }}>
               {planGroups.map((g) => (
                 <li key={g.actionLabel}>
@@ -247,66 +321,16 @@ export function RecommendationCard({
               ))}
             </ul>
           )}
-          {compact && planGroups.length > 0 && (
-            <div style={{ marginTop: 4, color: "var(--muted)", fontSize: 11 }}>
-              {planGroups
-                .slice(0, 3)
-                .map((g) => `${g.actionLabel} (${g.skuCount})`)
-                .join(" · ")}
-            </div>
-          )}
         </div>
       )}
 
-      {!compact && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-            gap: 8,
-            fontSize: 12,
-          }}
-        >
-          <Metric label="Cash impact" value={cash != null ? usd(cash) : "—"} />
-          <Metric
-            label="COI"
-            value={
-              rec.costOfInaction != null
-                ? usd(rec.costOfInaction)
-                : rec.companyCarryingCostRateConfigured === false
-                  ? "Not configured"
-                  : "—"
-            }
-          />
-          {rec.analysisGrain === "segment" && (
-            <Metric
-              label="Affected SKUs"
-              value={String(rec.affectedSkuCount ?? memberSkus.length)}
-            />
-          )}
-          <Metric
-            label="Owner"
-            value={
-              rec.ownerName || rec.ownerUserId
-                ? `${rec.ownerName ?? rec.ownerUserId}${rec.ownerAccepted ? " ✓" : " (pending)"}`
-                : "Unassigned"
-            }
-          />
-        </div>
-      )}
-
-      {!compact && rec.analysisGrain === "segment" && memberSkus.length > 0 && (
+      {rec.analysisGrain === "segment" && memberSkus.length > 0 && (
         <div style={{ fontSize: 12 }}>
-          <button
-            type="button"
-            style={{ ...btn, marginBottom: 6 }}
-            onClick={() => setShowMembers((v) => !v)}
-            aria-expanded={showMembers}
-          >
+          <button type="button" style={ghostBtn} onClick={() => setShowMembers((v) => !v)}>
             {showMembers ? "Hide" : "Show"} supporting SKUs ({memberSkus.length})
           </button>
           {showMembers && (
-            <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", maxHeight: 160, overflow: "auto" }}>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: "var(--muted)", maxHeight: 160, overflow: "auto" }}>
               {memberSkus.slice(0, 50).map((m) => (
                 <li key={m.skuOrItemId}>
                   {m.skuOrItemId}
@@ -314,20 +338,15 @@ export function RecommendationCard({
                   {m.recommendedAction ? ` · ${m.recommendedAction}` : ""}
                 </li>
               ))}
-              {memberSkus.length > 50 && <li>…and {memberSkus.length - 50} more</li>}
             </ul>
           )}
         </div>
       )}
 
-      {(rec.progressNarrative || rec.blockerNote || rec.presentationCategory === "holdover") && (
+      {(rec.progressNarrative || rec.blockerNote) && (
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
           {rec.progressNarrative && <div>Progress: {rec.progressNarrative}</div>}
           {rec.blockerNote && <div style={{ color: "var(--warn)" }}>Blocker: {rec.blockerNote}</div>}
-          {rec.lastProgressAt && <div>Last update: {new Date(rec.lastProgressAt).toLocaleString()}</div>}
-          {rec.expectedCompletionAt && (
-            <div>Expected completion: {new Date(rec.expectedCompletionAt).toLocaleDateString()}</div>
-          )}
         </div>
       )}
 
@@ -335,57 +354,94 @@ export function RecommendationCard({
         <p style={{ margin: 0, fontSize: 12, color: "var(--warn)" }}>{rec.agingAdvisory}</p>
       )}
 
-      <p style={{ margin: 0, fontSize: 13, color: "var(--accent)" }}>
-        Required: {requiredActionHint(rec.lifecycleState, rec.presentationCategory)}
-      </p>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{lookThisWeekRole(rec)}</p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        {primary && (
-          <button type="button" style={primaryBtn} disabled={busy} onClick={runPrimary}>
-            {primary}
+        {isExecOrOps || isOwner ? (
+          <button type="button" style={primaryBtn} disabled={busy} onClick={takeThisOn}>
+            Take this on
+          </button>
+        ) : null}
+        {isExecOrOps && rec.presentationCategory !== "deferred" && (
+          <button type="button" style={outlineBtn} disabled={busy} onClick={notThisWeek}>
+            Not this week
           </button>
         )}
+        <button type="button" style={ghostBtn} onClick={() => setShowWhy((v) => !v)}>
+          Why?
+        </button>
         <Link
           href={`/runs/${runId}/recommendations/${rec.id}?viewAs=${persona}`}
-          style={{ ...btn, textDecoration: "none" }}
+          style={{ ...ghostBtn, textDecoration: "none" }}
         >
-          Details
+          More on this board
         </Link>
-
-        {isExecOrOps && rec.lifecycleState === "Management Review" && rec.presentationCategory !== "deferred" && (
-          <>
-            <button type="button" style={btn} disabled={busy} onClick={() => setForm("defer")}>
-              Defer…
-            </button>
-            <button type="button" style={btn} disabled={busy} onClick={() => setForm("reject")}>
-              Reject…
-            </button>
-          </>
+        {isExecOrOps && rec.lifecycleState === "Management Review" && (
+          <button type="button" style={ghostBtn} disabled={busy} onClick={() => setForm("reject")}>
+            Reject…
+          </button>
         )}
         {isExecOrOps && rec.lifecycleState === "Active" && (
           <>
-            <button type="button" style={btn} disabled={busy} onClick={() => setForm("pause")}>
+            <button type="button" style={ghostBtn} disabled={busy} onClick={() => setForm("pause")}>
               Pause…
             </button>
-            <button type="button" style={btn} disabled={busy} onClick={() => setForm("escalate")}>
+            <button type="button" style={ghostBtn} disabled={busy} onClick={() => setForm("escalate")}>
               Escalate…
             </button>
           </>
         )}
-        {(isOwner || isExecOrOps) &&
-          (rec.lifecycleState === "Paused" || rec.lifecycleState === "Escalated") &&
-          primary !== "Resume" && (
-            <button type="button" style={btn} disabled={busy} onClick={() => onAction(rec.id, "resume")}>
-              Resume
-            </button>
-          )}
       </div>
+
+      {showWhy && (
+        <div
+          style={{
+            background: "var(--panel-2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: 14,
+            fontSize: 13,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <p style={{ margin: 0, fontWeight: 600 }}>Why this is on the board</p>
+          {rec.storyWhat && (
+            <p style={{ margin: 0 }}>
+              <strong>What:</strong> {rec.storyWhat}
+            </p>
+          )}
+          {rec.storyWhy && (
+            <p style={{ margin: 0 }}>
+              <strong>Why:</strong> {rec.storyWhy}
+            </p>
+          )}
+          {rec.storyWhyNow && (
+            <p style={{ margin: 0 }}>
+              <strong>Why now:</strong> {rec.storyWhyNow}
+            </p>
+          )}
+          {rec.storyExpectedResult && (
+            <p style={{ margin: 0 }}>
+              <strong>Expected result:</strong> {rec.storyExpectedResult}
+            </p>
+          )}
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            {rec.confidenceNarrative ?? rec.confidence}
+          </p>
+          <p style={{ margin: 0, color: "var(--muted)", fontSize: 12 }}>
+            Official management order. Unlike economic families are not a cash leaderboard. Capacity is
+            respected via OEC — not padded.
+          </p>
+        </div>
+      )}
 
       {form && (
         <div
           style={{
             borderTop: "1px solid var(--border)",
-            paddingTop: 10,
+            paddingTop: 12,
             display: "flex",
             flexDirection: "column",
             gap: 8,
@@ -429,7 +485,11 @@ export function RecommendationCard({
             <>
               <label style={{ fontSize: 12 }}>
                 Progress
-                <textarea value={progress} onChange={(e) => setProgress(e.target.value)} style={{ ...inputStyle, minHeight: 60 }} />
+                <textarea
+                  value={progress}
+                  onChange={(e) => setProgress(e.target.value)}
+                  style={{ ...inputStyle, minHeight: 60 }}
+                />
               </label>
               <label style={{ fontSize: 12 }}>
                 Blocker (optional)
@@ -469,7 +529,7 @@ export function RecommendationCard({
             >
               Confirm
             </button>
-            <button type="button" style={btn} onClick={() => setForm(null)}>
+            <button type="button" style={ghostBtn} onClick={() => setForm(null)}>
               Cancel
             </button>
           </div>
@@ -479,29 +539,13 @@ export function RecommendationCard({
   );
 }
 
-function TrustLine({ label, text }: { label: string; text: string | null }) {
-  if (!text) return null;
-  return (
-    <div>
-      <strong style={{ color: "var(--muted)", fontSize: 11 }}>{label}: </strong>
-      {text}
-    </div>
-  );
-}
-
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: "var(--panel-2)", borderRadius: 8, padding: "8px 10px" }}>
-      <div style={{ color: "var(--muted)", fontSize: 11 }}>{label}</div>
-      <div style={{ fontWeight: 600 }}>{value}</div>
+    <div>
+      <div style={{ color: "var(--muted)", fontSize: 12 }}>{label}</div>
+      <div style={{ fontWeight: 700, fontSize: 15 }}>{value}</div>
     </div>
   );
-}
-
-function labelCat(cat: string) {
-  if (cat === "active_priority" || cat === "top_2") return "Active Priority";
-  if (cat === "waiting_activation" || cat === "managed_backlog") return "Waiting";
-  return cat;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -511,32 +555,7 @@ const inputStyle: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 6,
   border: "1px solid var(--border)",
-  background: "var(--bg)",
+  background: "var(--panel)",
   color: "var(--text)",
   boxSizing: "border-box",
 };
-
-function chip(kind: string): React.CSSProperties {
-  const colors: Record<string, string> = {
-    active_priority: "var(--accent)",
-    top_2: "var(--accent)",
-    waiting_activation: "var(--muted)",
-    managed_backlog: "var(--muted)",
-    deferred: "var(--warn)",
-    holdover: "#7ab0ff",
-    emergency: "var(--bad)",
-    interim: "var(--warn)",
-    warn: "var(--warn)",
-    ls: "var(--muted)",
-    rank: "var(--accent)",
-  };
-  return {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    padding: "2px 6px",
-    borderRadius: 4,
-    border: `1px solid ${colors[kind] ?? "var(--border)"}`,
-    color: colors[kind] ?? "var(--muted)",
-  };
-}
