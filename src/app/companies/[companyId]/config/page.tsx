@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CompanyCarryingCostConfigForm } from "@/components/CompanyCarryingCostConfigForm";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function CompanyConfigPage({
   searchParams: Promise<{ returnTo?: string; viewAs?: string }>;
 }) {
   const { companyId } = await params;
+  const gate = await pageGate({ companyId });
+  if (gate) return gate;
   const { returnTo, viewAs } = await searchParams;
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   if (!company) notFound();

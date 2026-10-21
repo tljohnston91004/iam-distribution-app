@@ -27,7 +27,12 @@
     "test:prescribed-action-plan": "npx tsx scripts/run-prescribed-action-plan-tests.ts",
     "test:revised-scoring": "npx tsx scripts/run-revised-scoring-tests.ts",
     "test:coi": "npx tsx scripts/run-coi-tests.ts",
-    "test:carrying-cost-rate": "npx tsx scripts/run-carrying-cost-rate-tests.ts"
+    "test:carrying-cost-rate": "npx tsx scripts/run-carrying-cost-rate-tests.ts",
+    "test:dpos-4a": "npx tsx --test \"tests/dpos/*.test.ts\"",
+    "test:regression": "npx tsx scripts/run-iam-regression.ts",
+    "dpos:migrate": "npx tsx scripts/iam-migrate.ts",
+    "dpos:admin": "npx tsx scripts/iam-dpos.ts",
+    "dpos:sync-contract": "npx tsx scripts/sync-dpos-contract.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

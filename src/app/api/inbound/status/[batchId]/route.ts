@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextRequest, NextResponse } from "next/server";
 import { getIngestionStatus, InboundPortError } from "@/lib/iam/inbound";
 
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 /**
  * GET /api/inbound/status/[batchId]?reviewCycleId= — GetIngestionStatus
  */
-export async function GET(
+async function GET_v15(
   req: NextRequest,
   ctx: { params: Promise<{ batchId: string }> }
 ) {
@@ -36,3 +37,5 @@ export async function GET(
     }, { status: 500 });
   }
 }
+
+export const GET = withDposAccess(GET_v15, { peekRunReference: true });

@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { adjustRecommendationCoiTargetPeriod } from "@/lib/iam/coi";
 
@@ -5,7 +6,7 @@ import { adjustRecommendationCoiTargetPeriod } from "@/lib/iam/coi";
  * POST /api/recommendations/[id]/coi/adjust
  * Management-adjusted COI target-resolution period (preserves original COI).
  */
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
     const body = (await req.json()) as {
@@ -34,3 +35,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withDposAccess(POST_v15);

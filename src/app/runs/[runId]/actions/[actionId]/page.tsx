@@ -6,6 +6,7 @@ import { IamRunNav } from "@/components/IamRunNav";
 import { recommendPlaybook } from "@/lib/iam/playbooks";
 import { filterNotesForView } from "@/lib/iam/notes";
 import { shortDate, usd } from "@/lib/format";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export default async function ActionDetailPage({
   searchParams: Promise<{ viewAs?: string }>;
 }) {
   const { runId, actionId } = await params;
+  const gate = await pageGate({ runId });
+  if (gate) return gate;
   const { viewAs: viewAsParam } = await searchParams;
   const viewAs = viewAsParam === "owner" ? "owner" : "management";
 

@@ -1,10 +1,11 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { assessRunReadiness } from "@/lib/iam/intake";
 import { runIamCalculatePipeline } from "@/lib/iam/engine/calculate-pipeline";
 import { applyPostCalculateFixtures, seedValidationData } from "@/lib/iam/validation/integration-tests";
 
-export async function POST(req: Request) {
+async function POST_v15(req: Request) {
   try {
     const body = await req.json();
     const runId = body.runId as string;
@@ -31,3 +32,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Validation seed failed" }, { status: 500 });
   }
 }
+
+export const POST = withDposAccess(POST_v15, { blockInIntegrated: true });

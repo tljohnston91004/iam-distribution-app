@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import {
   stageKeystrokeUpload,
@@ -6,7 +7,7 @@ import {
   type IamKeystrokeFileType,
 } from "@/lib/iam/adapters/keystroke";
 
-export async function GET(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function GET_v15(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const status = await getKeystrokeUploadStatus(runId);
@@ -17,7 +18,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ runId: string 
   }
 }
 
-export async function POST(req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const form = await req.formData();
@@ -52,3 +53,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ runId: string 
     );
   }
 }
+
+export const GET = withDposAccess(GET_v15);
+export const POST = withDposAccess(POST_v15);

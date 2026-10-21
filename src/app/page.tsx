@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { shortDate } from "@/lib/format";
+import { pageGate } from "@/lib/dpos/page-gate";
+import { boundIamCompanyId } from "@/lib/dpos/runtime";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  const gate = await pageGate();
+  if (gate) return gate;
+  // DPOS_INTEGRATED: only the bound company's review cycles; STANDALONE_LEGACY: unchanged (all).
+  const boundCompanyId = await boundIamCompanyId();
   const runs = await prisma.iamRun.findMany({
+    ...(boundCompanyId ? { where: { companyId: boundCompanyId } } : {}),
     orderBy: { createdAt: "desc" },
     include: {
       company: true,

@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { IamRunNav } from "@/components/IamRunNav";
 import { usd } from "@/lib/format";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
 export default async function ArchivePage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params;
+  const gate = await pageGate({ runId });
+  if (gate) return gate;
   const run = await prisma.iamRun.findUnique({
     where: { id: runId },
     include: { company: true },

@@ -1,10 +1,11 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 /**
  * EEP — update WIP progress narrative (does not change lifecycle).
  */
-export async function PATCH(
+async function PATCH_v15(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -61,3 +62,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withDposAccess(PATCH_v15);

@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import {
   LifecycleTransitionError,
@@ -40,7 +41,7 @@ type Action =
  * Named governance actions only (DF-03) — raw free-form LS transition is not exposed.
  * Every action validates through the lifecycle engine before any durable write.
  */
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
     const body = (await req.json()) as Record<string, unknown>;
@@ -175,3 +176,5 @@ function slimTransitionPayload(result: unknown): Record<string, unknown> | null 
     opportunityKey: r.opportunityKey,
   };
 }
+
+export const POST = withDposAccess(POST_v15);

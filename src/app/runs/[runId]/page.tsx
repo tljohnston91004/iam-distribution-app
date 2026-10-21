@@ -7,6 +7,7 @@ import { buildRunBanners, nextBestAction } from "@/lib/iam/banners";
 import { loadBoardRecommendations, loadBusinessHealth } from "@/lib/iam/board/load";
 import { shortDate } from "@/lib/format";
 import type { BoardPersona } from "@/lib/iam/board/types";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export default async function DecisionBoardPage({
   searchParams: Promise<{ viewAs?: string }>;
 }) {
   const { runId } = await params;
+  const gate = await pageGate({ runId });
+  if (gate) return gate;
   const { viewAs } = await searchParams;
   const persona: BoardPersona =
     viewAs === "operations" || viewAs === "owner" || viewAs === "executive" ? viewAs : "executive";

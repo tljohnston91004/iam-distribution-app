@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextRequest, NextResponse } from "next/server";
 import { InboundPortError, upsertRecommendations } from "@/lib/iam/inbound";
 import type { RecommendationBatchInput } from "@/lib/iam/inbound";
@@ -7,7 +8,7 @@ export const runtime = "nodejs";
 /**
  * POST /api/inbound/recommendations — UpsertRecommendations (ADR-IAM-001 + SD-17).
  */
-export async function POST(req: NextRequest) {
+async function POST_v15(req: NextRequest) {
   try {
     const body = (await req.json()) as RecommendationBatchInput;
     const result = await upsertRecommendations(body);
@@ -34,3 +35,5 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export const POST = withDposAccess(POST_v15, { peekRunReference: true });

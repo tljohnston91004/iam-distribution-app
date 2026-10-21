@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -5,7 +6,7 @@ import { prisma } from "@/lib/db";
  * GET/POST /api/recommendations/[id]/notes
  * Phase 5 contributor / management notes.
  */
-export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function GET_v15(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
     const viewAs = new URL(req.url).searchParams.get("viewAs") ?? "executive";
@@ -23,7 +24,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   }
 }
 
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
     const body = (await req.json()) as Record<string, unknown>;
@@ -62,3 +63,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: "Failed to add note" }, { status: 500 });
   }
 }
+
+export const GET = withDposAccess(GET_v15);
+export const POST = withDposAccess(POST_v15);

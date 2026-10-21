@@ -1,7 +1,8 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET(_req: Request, ctx: { params: Promise<{ actionId: string }> }) {
+async function GET_v15(_req: Request, ctx: { params: Promise<{ actionId: string }> }) {
   const { actionId } = await ctx.params;
   const action = await prisma.action.findUnique({
     where: { id: actionId },
@@ -16,3 +17,5 @@ export async function GET(_req: Request, ctx: { params: Promise<{ actionId: stri
   if (!action) return NextResponse.json({ error: "Action not found" }, { status: 404 });
   return NextResponse.json({ action });
 }
+
+export const GET = withDposAccess(GET_v15);

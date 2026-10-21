@@ -1,7 +1,8 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function POST(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
   try {
     const { actionId } = await ctx.params;
     const body = await req.json();
@@ -32,3 +33,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     return NextResponse.json({ error: "Failed to add note" }, { status: 500 });
   }
 }
+
+export const POST = withDposAccess(POST_v15);

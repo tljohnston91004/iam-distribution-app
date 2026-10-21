@@ -1,0 +1,12 @@
+{
+  "contractId": "IAM_RESULTS_RETURN_V1",
+  "vendoredFile": "iam-results-return.ts",
+  "source": {
+    "repository": "DPOSDH (Decision Priority Data Hub)",
+    "path": "packages/shared/src/iam-results-return.ts",
+    "commit": "7bff0614d45a6d0e05c4e62340fe9f670699cf6c",
+    "gitBlob": "2210c6e96e856c7674fa4ec467b13e197b88589b",
+    "sha256": "238628311933e08bd785b5c20126a3b6b134d77aeda3090ff81a43cbb1cf52f0"
+  },
+  "note": "Vendored verbatim until @dpos/shared is published as a package. Do not edit iam-results-return.ts here; change it in the DPOS repository and run `npm run dpos:sync-contract -- --write`. `--check` (and the drift test) fail when the vendored copy differs from the pin or from the DPOS source."
+}

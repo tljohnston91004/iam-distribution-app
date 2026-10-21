@@ -2,10 +2,13 @@ import Link from "next/link";
 import { ValidationPanel } from "@/components/ValidationPanel";
 import { runFullValidation } from "@/lib/iam/validation/run-all";
 import type { AcceptanceItem, ValidationReport } from "@/lib/iam/validation/types";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
 export default async function ValidationPage() {
+  const gate = await pageGate();
+  if (gate) return gate;
   let report: ValidationReport;
   let checklist: AcceptanceItem[];
   let validationRunId: string | null = null;

@@ -1,7 +1,8 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { setCompanyOec } from "@/lib/iam/presentation/oec";
 
-export async function POST(
+async function POST_v15(
   req: Request,
   { params }: { params: Promise<{ companyId: string }> }
 ) {
@@ -27,3 +28,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withDposAccess(POST_v15);

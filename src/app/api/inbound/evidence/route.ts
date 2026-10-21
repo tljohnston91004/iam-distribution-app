@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextRequest, NextResponse } from "next/server";
 import { InboundPortError, type EvidencePackageInput } from "@/lib/iam/inbound";
 import {
@@ -11,7 +12,7 @@ export const runtime = "nodejs";
  * POST /api/inbound/evidence — unified evidence submission (Port + reconcile + pending approval).
  * Does not score, place on Board, or mutate lifecycle (ADR-IAM-001).
  */
-export async function POST(req: NextRequest) {
+async function POST_v15(req: NextRequest) {
   try {
     const body = (await req.json()) as EvidencePackageInput;
     const result = await submitEvidenceThroughUnifiedIngestion(body);
@@ -49,3 +50,5 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export const POST = withDposAccess(POST_v15, { peekRunReference: true });

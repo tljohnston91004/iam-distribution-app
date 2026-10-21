@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { getPresentationLanes, scoreAndPresentReviewCycle } from "@/lib/iam/presentation";
 
@@ -5,7 +6,7 @@ import { getPresentationLanes, scoreAndPresentReviewCycle } from "@/lib/iam/pres
  * GET /api/runs/[runId]/presentation — Board lanes for a Review Cycle.
  * POST — re-score and re-assign presentation (does not change lifecycle states).
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function GET_v15(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const lanes = await getPresentationLanes(runId);
@@ -19,7 +20,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ runId: string 
   }
 }
 
-export async function POST(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function POST_v15(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const result = await scoreAndPresentReviewCycle(runId);
@@ -32,3 +33,6 @@ export async function POST(_req: Request, ctx: { params: Promise<{ runId: string
     );
   }
 }
+
+export const GET = withDposAccess(GET_v15);
+export const POST = withDposAccess(POST_v15);

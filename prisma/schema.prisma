@@ -704,3 +704,376 @@ model UploadStagingRow {
   @@index([batchId, skuOrItemId])
   @@map("upload_staging_rows")
 }
+
+// =====================================================================================================================
+// Stage 4A â€” DPOS-integrated IAM core integration foundation (additive only).
+//
+// Nothing above this line is changed by Stage 4A. These models add NEW tables; they carry no foreign keys to the V1.5
+// tables, so the V1.5 data model is preserved byte-for-byte and the Stage 4A migration can be reversed by dropping
+// only the tables created here (see prisma/migrations/<stage4a>/down.sql).
+//
+// Company identity: `dposCompanyId` is the DPOS / Data Hub company UUID. It is stored as supplied by the governed
+// company binding and is never defaulted.
+// =====================================================================================================================
+
+/// Governed binding of this IAM installation to exactly one DPOS company (company-context foundation).
+model DposCompanyBinding {
+  id               String   @id @default(uuid()) @map("binding_id")
+  /// V1.5 `companies.company_id` this binding uses for legacy-model data (no database FK by design).
+  iamCompanyId     String   @unique @map("iam_company_id")
+  dposCompanyId    String   @unique @map("dpos_company_id")
+  dataHubCompanyId String   @map("data_hub_company_id")
+  installationId   String   @map("installation_id")
+  /// IANA identifier. NULL when not configured; never defaulted to UTC (the scheduler reports an explicit failure).
+  companyTimeZone  String?  @map("company_time_zone")
+  /// PRODUCTION | WORKSHOP | TEST
+  environmentClass String   @map("environment_class")
+  configurationId  String   @map("configuration_id")
+  /// ACTIVE | SUSPENDED
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("dpos_company_bindings")
+}
+
+/// IAM service identity used for service-to-service calls to Data Hub. Never a human or an end-user role.
+/// The credential itself is never stored here: `credentialRef` names the environment variable that holds it.
+model DposServiceIdentity {
+  id               String    @id @default(uuid()) @map("service_identity_id")
+  /// Value sent to Data Hub as the service identity (x-identity-id). Generated, never a person's name.
+  identityId       String    @unique @map("identity_id")
+  /// Always SERVICE. A USER principal is never recorded here.
+  principalKind    String    @default("SERVICE") @map("principal_kind")
+  moduleId         String    @default("IAM") @map("module_id")
+  dposCompanyId    String    @map("dpos_company_id")
+  installationId   String    @map("installation_id")
+  environmentClass String    @map("environment_class")
+  /// JSON array of capability keys, e.g. datahub.iam_results_return.write
+  capabilitiesJson String    @map("capabilities_json")
+  /// ACTIVE | REVOKED
+  status           String    @default("ACTIVE")
+  /// WORKSHOP (secure workshop identity) | PRODUCTION (issued by the DPOS identity platform)
+  issuanceKind     String    @map("issuance_kind")
+  /// Name of the environment variable holding the bearer credential (optional; never the secret).
+  credentialRef    String?   @map("credential_ref")
+  issuedAt         DateTime  @default(now()) @map("issued_at")
+  issuedBy         String    @map("issued_by")
+  expiresAt        DateTime? @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedBy        String?   @map("revoked_by")
+  revokedReason    String?   @map("revoked_reason")
+
+  @@index([dposCompanyId, status])
+  @@map("dpos_service_identities")
+}
+
+/// Append-only audit trail for the integration foundation (identity issue/revoke/denial, eligibility denials,
+/// company-context rejections, refresh and outbox administrative actions).
+model DposAuditEvent {
+  id            String   @id @default(uuid()) @map("audit_event_id")
+  at            DateTime @default(now()) @map("at")
+  category      String
+  action        String
+  outcome       String
+  actor         String?
+  dposCompanyId String?  @map("dpos_company_id")
+  subjectType   String?  @map("subject_type")
+  subjectId     String?  @map("subject_id")
+  detailJson    String?  @map("detail_json")
+
+  @@index([category, at])
+  @@index([subjectType, subjectId])
+  @@map("dpos_audit_events")
+}
+
+/// One row per refresh attempt (scheduled Sunday refresh or manual Refresh from Data Hub).
+model DposRefreshAttempt {
+  id                  String    @id @default(uuid()) @map("refresh_attempt_id")
+  dposCompanyId       String    @map("dpos_company_id")
+  /// SCHEDULED_WEEKLY | MANUAL_REFRESH
+  trigger             String
+  requestedBy         String    @map("requested_by")
+  /// The scheduled occurrence this attempt serves (ISO instant) â€” unique per company for SCHEDULED_WEEKLY so one
+  /// occurrence is never run twice. Null for manual refresh.
+  scheduledFor        String?   @map("scheduled_for")
+  /// True when a missed scheduled occurrence was run late (IAM was not running at the scheduled instant).
+  catchUp             Boolean   @default(false) @map("catch_up")
+  startedAt           DateTime  @map("started_at")
+  completedAt         DateTime? @map("completed_at")
+  /// STARTED | SUCCEEDED | FAILED
+  status              String
+  failureCategory     String?   @map("failure_category")
+  failureCode         String?   @map("failure_code")
+  failureReason       String?   @map("failure_reason")
+  /// Governed data currency reported by Data Hub for this attempt (oldest available source reference time).
+  dataCurrentThrough  DateTime? @map("data_current_through")
+  operatingPeriodStart String?  @map("operating_period_start")
+  operatingPeriodEnd   String?  @map("operating_period_end")
+  /// Per-source availability, freshness and source run identity returned by Data Hub (no copied business records).
+  inputSummaryJson    String?   @map("input_summary_json")
+  hubCorrelationId    String?   @map("hub_correlation_id")
+
+  @@unique([dposCompanyId, trigger, scheduledFor])
+  @@index([dposCompanyId, startedAt])
+  @@map("dpos_refresh_attempts")
+}
+
+/// Single current-refresh-state row per company (what the later Decision Board data-status strip reads).
+model DposRefreshState {
+  dposCompanyId          String    @id @map("dpos_company_id")
+  lastAttemptAt          DateTime? @map("last_attempt_at")
+  lastAttemptStatus      String?   @map("last_attempt_status")
+  lastSuccessAt          DateTime? @map("last_success_at")
+  /// "Last IAM refresh": completion time of the last successful refresh.
+  lastIamRefreshAt       DateTime? @map("last_iam_refresh_at")
+  dataCurrentThrough     DateTime? @map("data_current_through")
+  nextScheduledRefreshAt DateTime? @map("next_scheduled_refresh_at")
+  /// OK | MISSING | INVALID | UNAVAILABLE â€” explicit schedule state, never a silent UTC fallback.
+  scheduleStatus         String    @default("UNKNOWN") @map("schedule_status")
+  scheduleReason         String?   @map("schedule_reason")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@map("dpos_refresh_state")
+}
+
+/// Producer-side outbox for IAM_RESULTS_RETURN_V1. Every outbound event is persisted here BEFORE transmission and is
+/// never deleted. The row's payload is what Data Hub receives; retries reuse the same producerEventId and payload.
+model DposResultsReturnOutbox {
+  id                       String    @id @default(uuid()) @map("outbox_id")
+  /// Generated UUID, company-wide unique across all Results Return contracts/producers (Stage 3 rule S3-D6).
+  producerEventId          String    @map("producer_event_id")
+  dposCompanyId            String    @map("dpos_company_id")
+  candidateId              String    @map("candidate_id")
+  actionRef                String?   @map("action_ref")
+  eventType                String    @map("event_type")
+  contractId               String    @map("contract_id")
+  contractVersion          String    @map("contract_version")
+  /// Optional caller operation key; unique per company so one business operation never creates two events.
+  operationKey             String?   @map("operation_key")
+  payloadJson              String    @map("payload_json")
+  payloadHash              String    @map("payload_hash")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  attemptCount             Int       @default(0) @map("attempt_count")
+  lastAttemptAt            DateTime? @map("last_attempt_at")
+  nextAttemptAt            DateTime? @map("next_attempt_at")
+  /// PENDING | SYNCED | SYNC_PENDING_RETRY | REJECTED_CORRECTION_REQUIRED | BLOCKED_ADMIN_ACTION
+  syncStatus               String    @default("PENDING") @map("sync_status")
+  /// TEMPORARY_TECHNICAL | DATA_VALIDATION | CONFIGURATION_SYSTEM
+  failureCategory          String?   @map("failure_category")
+  failureCode              String?   @map("failure_code")
+  failureReason            String?   @map("failure_reason")
+  failureIssuesJson        String?   @map("failure_issues_json")
+  retryEligible            Boolean   @default(true) @map("retry_eligible")
+  manualCorrectionRequired Boolean   @default(false) @map("manual_correction_required")
+  adminAlertRaised         Boolean   @default(false) @map("admin_alert_raised")
+  acceptedAt               DateTime? @map("accepted_at")
+  acknowledgementId        String?   @map("acknowledgement_id")
+  acknowledgementJson      String?   @map("acknowledgement_json")
+  /// Short transmission lease so two workers never send the same event at once.
+  leaseUntil               DateTime? @map("lease_until")
+
+  attempts DposResultsReturnOutboxAttempt[]
+
+  @@unique([dposCompanyId, producerEventId])
+  @@unique([dposCompanyId, operationKey])
+  @@index([syncStatus, nextAttemptAt])
+  @@index([dposCompanyId, candidateId])
+  @@map("dpos_results_return_outbox")
+}
+
+/// Append-only ledger of every transmission attempt, correction and administrative release for an outbox event.
+model DposResultsReturnOutboxAttempt {
+  id                String   @id @default(uuid()) @map("attempt_id")
+  outboxId          String   @map("outbox_id")
+  outbox            DposResultsReturnOutbox @relation(fields: [outboxId], references: [id], onDelete: Restrict)
+  attemptNumber     Int      @map("attempt_number")
+  /// TRANSMISSION | CORRECTION | ADMIN_RELEASE | LOCAL_VALIDATION
+  kind              String
+  at                DateTime @default(now()) @map("at")
+  httpStatus        Int?     @map("http_status")
+  outcome           String
+  failureCategory   String?  @map("failure_category")
+  failureCode       String?  @map("failure_code")
+  acknowledgementJson String? @map("acknowledgement_json")
+  durationMs        Int?     @map("duration_ms")
+  payloadHash       String?  @map("payload_hash")
+  detailJson        String?  @map("detail_json")
+
+  @@index([outboxId, at])
+  @@map("dpos_results_return_outbox_attempts")
+}
+
+/// Records each governed migration run against this database (backup, legacy-preservation proof).
+model DposMigrationRecord {
+  id                   String   @id @default(uuid()) @map("migration_record_id")
+  migrationName        String   @map("migration_name")
+  startedAt            DateTime @map("started_at")
+  completedAt          DateTime @map("completed_at")
+  outcome              String
+  backupFile           String?  @map("backup_file")
+  legacyDigestBefore   String?  @map("legacy_digest_before")
+  legacyDigestAfter    String?  @map("legacy_digest_after")
+  legacyTableCount     Int?     @map("legacy_table_count")
+  notes                String?
+
+  @@map("dpos_migration_records")
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Canonical IAM core persistence (structure only in Stage 4A; no scoring, recommendation or closeout logic here)
+// --------------------------------------------------------------------------------------------------------------------
+
+/// A) Candidate / priority identity. `candidateId` is the identity sent to Data Hub in subject.candidateId.
+model IamCoreCandidate {
+  candidateId            String    @id @default(uuid()) @map("candidate_id")
+  dposCompanyId          String    @map("dpos_company_id")
+  /// Grouped condition identity. At most one OPEN candidate per (company, key); a closed key may recur only as a
+  /// NEW candidate linked through recurrenceOfCandidateId.
+  groupedConditionKey    String    @map("grouped_condition_key")
+  groupedConditionJson   String?   @map("grouped_condition_json")
+  /// Data Hub / IAM source run identity that produced this candidate.
+  sourceRunId            String?   @map("source_run_id")
+  sourceRefreshAttemptId String?   @map("source_refresh_attempt_id")
+  sourceEvidenceRefsJson String?   @map("source_evidence_refs_json")
+  /// Shared contract vocabulary: CANDIDATE, APPROVED, REJECTED, SUPPRESSED, ESCALATED, RISK_ACCEPTED, ACTIVE,
+  /// COMPLETED, OUTCOME_VALIDATED, CLOSED
+  lifecycleState         String    @default("CANDIDATE") @map("lifecycle_state")
+  recurrenceOfCandidateId String?  @map("recurrence_of_candidate_id")
+  originalCreatedAt      DateTime  @map("original_created_at")
+  /// Set exactly once at closeout; a closed candidate is never reopened.
+  closedAt               DateTime? @map("closed_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  recurrenceOf       IamCoreCandidate?  @relation("CandidateRecurrence", fields: [recurrenceOfCandidateId], references: [candidateId], onDelete: Restrict)
+  recurrences        IamCoreCandidate[] @relation("CandidateRecurrence")
+  recommendations    IamCoreSystemRecommendation[]
+  managementPlans    IamCoreManagementPlan[]
+  ownerships         IamCoreOwnership[]
+  executionState     IamCoreExecutionState?
+  outcome            IamCoreOutcome?
+
+  @@index([dposCompanyId, lifecycleState])
+  @@index([dposCompanyId, groupedConditionKey])
+  @@map("iam_core_candidates")
+}
+
+/// B) System recommendation. Append-only versions: the original IAM recommendation is never overwritten.
+model IamCoreSystemRecommendation {
+  recommendationId       String   @id @default(uuid()) @map("recommendation_id")
+  candidateId            String   @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  recommendationVersion  Int      @map("recommendation_version")
+  recommendedAt          DateTime @map("recommended_at")
+  /// Original recommended action direction (descriptive; the recommendation engine is a later stage).
+  recommendedActionDirection String @map("recommended_action_direction")
+  title                  String?
+  summary                String?
+  supportingEvidenceRefsJson String? @map("supporting_evidence_refs_json")
+  /// Reserved for the later scoring stage (not populated or calculated in Stage 4A).
+  domainScore            Float?   @map("domain_score")
+  domainRank             Int?     @map("domain_rank")
+  recommendationJson     String?  @map("recommendation_json")
+  recommendedBy          String   @map("recommended_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  managementPlans IamCoreManagementPlan[]
+
+  @@unique([candidateId, recommendationVersion])
+  @@map("iam_core_system_recommendations")
+}
+
+/// C) Management-approved plan. Stored separately from the system recommendation and never overwrites it.
+model IamCoreManagementPlan {
+  planId                 String   @id @default(uuid()) @map("plan_id")
+  candidateId            String   @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  planVersion            Int      @map("plan_version")
+  basedOnRecommendationId String  @map("based_on_recommendation_id")
+  basedOnRecommendation  IamCoreSystemRecommendation @relation(fields: [basedOnRecommendationId], references: [recommendationId], onDelete: Restrict)
+  /// Shared contract vocabulary: NOT_PLANNED, PROPOSED, APPROVED, REJECTED, SUPERSEDED
+  approvalState          String   @default("PROPOSED") @map("approval_state")
+  managementDecision     String?  @map("management_decision")
+  deviatesFromRecommendation Boolean @default(false) @map("deviates_from_recommendation")
+  /// Required (service-enforced) when the plan materially deviates from the system recommendation.
+  deviationReason        String?  @map("deviation_reason")
+  approver               String?
+  approvedAt             DateTime? @map("approved_at")
+  planSummary            String?  @map("plan_summary")
+  planJson               String?  @map("plan_json")
+  createdBy              String   @map("created_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([candidateId, planVersion])
+  @@map("iam_core_management_plans")
+}
+
+/// D) Ownership. A new row per assignment; the previous row is ended, never rewritten.
+model IamCoreOwnership {
+  ownershipId           String   @id @default(uuid()) @map("ownership_id")
+  candidateId           String   @map("candidate_id")
+  candidate             IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  responsibleDepartment String   @map("responsible_department")
+  taskOwnerId           String?  @map("task_owner_id")
+  taskOwnerName         String?  @map("task_owner_name")
+  assignedAt            DateTime @map("assigned_at")
+  assignedBy            String   @map("assigned_by")
+  endedAt               DateTime? @map("ended_at")
+
+  contributors IamCoreContributor[]
+
+  @@index([candidateId, endedAt])
+  @@map("iam_core_ownerships")
+}
+
+model IamCoreContributor {
+  contributorId String   @id @default(uuid()) @map("contributor_id")
+  ownershipId   String   @map("ownership_id")
+  ownership     IamCoreOwnership @relation(fields: [ownershipId], references: [ownershipId], onDelete: Restrict)
+  userId        String   @map("user_id")
+  displayName   String?  @map("display_name")
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  @@unique([ownershipId, userId])
+  @@map("iam_core_contributors")
+}
+
+/// E) Execution state structure (values supplied by later stages; nothing is calculated in Stage 4A).
+model IamCoreExecutionState {
+  candidateId            String   @id @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// Shared contract vocabulary: ON_TRACK, ATTENTION, AT_RISK, OVERDUE, PAUSED, BLOCKED, COMPLETED
+  actionStatus           String?  @map("action_status")
+  actionCompletionPct    Float?   @map("action_completion_pct")
+  conditionReductionPct  Float?   @map("condition_reduction_pct")
+  remainingExposure      Float?   @map("remaining_exposure")
+  remainingExposureUnit  String?  @map("remaining_exposure_unit")
+  targetStart            DateTime? @map("target_start")
+  targetResolution       DateTime? @map("target_resolution")
+  blockersJson           String?  @map("blockers_json")
+  updatedBy              String?  @map("updated_by")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("iam_core_execution_states")
+}
+
+/// F) Closeout / outcome placeholders (structure only). Once `closeoutAt` is set the row is immutable.
+model IamCoreOutcome {
+  candidateId            String   @id @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// Shared contract vocabulary for final resolution (FULLY_RESOLVED, ...)
+  finalResolutionState   String?  @map("final_resolution_state")
+  measuredResultJson     String?  @map("measured_result_json")
+  /// Attribution fields: measured / natural baseline / IAM-attributed / uncertain-mixed, plus confidence.
+  attributionJson        String?  @map("attribution_json")
+  attributionConfidence  String?  @map("attribution_confidence")
+  residualExposure       Float?   @map("residual_exposure")
+  closeoutAt             DateTime? @map("closeout_at")
+  lessonsRef             String?  @map("lessons_ref")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("iam_core_outcomes")
+}

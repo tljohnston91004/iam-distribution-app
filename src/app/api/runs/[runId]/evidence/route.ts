@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextRequest, NextResponse } from "next/server";
 import {
   approveEvidenceForAnalysis,
@@ -9,7 +10,7 @@ import {
 export const runtime = "nodejs";
 
 /** GET — unified ingestion status (channels, batches, conflicts, approval). */
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
+async function GET_v15(_req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const status = await getIngestionStatus(runId);
@@ -28,7 +29,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ runId: str
  * POST — approve evidence for analysis, or reconcile.
  * body.action: "approve" | "reconcile" (default approve)
  */
-export async function POST(req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
+async function POST_v15(req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const body = (await req.json().catch(() => ({}))) as {
@@ -51,3 +52,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ runId: str
     return NextResponse.json({ error: "Evidence action failed" }, { status: 500 });
   }
 }
+
+export const GET = withDposAccess(GET_v15);
+export const POST = withDposAccess(POST_v15);

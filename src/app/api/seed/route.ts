@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import {
@@ -14,7 +15,7 @@ const SAMPLE_INVENTORY = [
   { sku: "SKU-400", desc: "Healthy turnover", qoh: 45, cost: 18, units: 60, sales: 1080 },
 ];
 
-export async function POST(req: Request) {
+async function POST_v15(req: Request) {
   try {
     const body = await req.json();
     const runId = body.runId as string;
@@ -86,3 +87,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withDposAccess(POST_v15, { blockInIntegrated: true });

@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import {
   CARRYING_COST_RATE_SOURCES,
@@ -12,7 +13,7 @@ import {
  * GET /api/companies/[companyId]/carrying-cost-rate
  * POST — update Annual Inventory Carrying-Cost Rate (authorized roles only).
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ companyId: string }> }) {
+async function GET_v15(_req: Request, ctx: { params: Promise<{ companyId: string }> }) {
   try {
     const { companyId } = await ctx.params;
     const config = await getCompanyCarryingCostRate(companyId);
@@ -27,7 +28,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ companyId: str
   }
 }
 
-export async function POST(req: Request, ctx: { params: Promise<{ companyId: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ companyId: string }> }) {
   try {
     const { companyId } = await ctx.params;
     const body = (await req.json()) as {
@@ -82,3 +83,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ companyId: str
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const GET = withDposAccess(GET_v15);
+export const POST = withDposAccess(POST_v15);

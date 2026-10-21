@@ -1,8 +1,9 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { transitionAction } from "@/lib/iam/workflow";
 import type { ActionWorkflowState } from "@/lib/iam/enums";
 
-export async function POST(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
+async function POST_v15(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
   try {
     const { actionId } = await ctx.params;
     const body = await req.json();
@@ -28,3 +29,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     );
   }
 }
+
+export const POST = withDposAccess(POST_v15);

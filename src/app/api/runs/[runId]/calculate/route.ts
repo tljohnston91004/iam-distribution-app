@@ -1,8 +1,9 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { runIamCalculatePipeline } from "@/lib/iam/engine/calculate-pipeline";
 import { IngestionError } from "@/lib/iam/ingestion";
 
-export async function POST(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function POST_v15(_req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const result = await runIamCalculatePipeline(runId);
@@ -19,3 +20,5 @@ export async function POST(_req: Request, ctx: { params: Promise<{ runId: string
     );
   }
 }
+
+export const POST = withDposAccess(POST_v15);

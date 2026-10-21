@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextRequest, NextResponse } from "next/server";
 import { InboundPortError, type EvidencePackageInput } from "@/lib/iam/inbound";
 import { IngestionError } from "@/lib/iam/ingestion";
@@ -6,7 +7,7 @@ import { submitDataHubEvidencePackage } from "@/lib/iam/adapters/data-hub/submit
 export const runtime = "nodejs";
 
 /** POST — Data Hub Evidence Package into unified IAM ingestion (requires enableDataHub). */
-export async function POST(req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
+async function POST_v15(req: NextRequest, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const body = (await req.json()) as Omit<EvidencePackageInput, "reviewCycleId">;
@@ -26,3 +27,5 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ runId: str
     return NextResponse.json({ error: "Data Hub evidence submit failed" }, { status: 500 });
   }
 }
+
+export const POST = withDposAccess(POST_v15);

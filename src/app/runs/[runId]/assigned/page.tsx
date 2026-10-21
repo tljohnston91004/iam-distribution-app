@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { IamRunNav } from "@/components/IamRunNav";
 import { AssignedRecommendationsPanel } from "@/components/AssignedRecommendationsPanel";
 import type { BoardRecommendation } from "@/lib/iam/board/types";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ export default async function AssignedViewPage({
   searchParams: Promise<{ owner?: string }>;
 }) {
   const { runId } = await params;
+  const gate = await pageGate({ runId });
+  if (gate) return gate;
   const { owner } = await searchParams;
   const ownerFilter = owner ?? "Pilot Manager";
 

@@ -1,3 +1,4 @@
+import { withDposAccess } from "@/lib/dpos/with-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import {
@@ -7,7 +8,7 @@ import {
   managementExportFilename,
 } from "@/lib/iam/export";
 
-export async function GET(req: Request, ctx: { params: Promise<{ runId: string }> }) {
+async function GET_v15(req: Request, ctx: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await ctx.params;
     const type = new URL(req.url).searchParams.get("type") ?? "management";
@@ -61,3 +62,5 @@ export async function GET(req: Request, ctx: { params: Promise<{ runId: string }
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }
+
+export const GET = withDposAccess(GET_v15);

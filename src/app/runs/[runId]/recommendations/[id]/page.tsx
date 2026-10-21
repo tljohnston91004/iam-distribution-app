@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { IamRunNav } from "@/components/IamRunNav";
 import { RecommendationDetailClient } from "@/components/RecommendationDetailClient";
 import type { BoardPersona } from "@/lib/iam/board/types";
+import { pageGate } from "@/lib/dpos/page-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export default async function RecommendationDetailPage({
   searchParams: Promise<{ viewAs?: string }>;
 }) {
   const { runId, id } = await params;
+  const gate = await pageGate({ runId });
+  if (gate) return gate;
   const { viewAs } = await searchParams;
   const persona: BoardPersona =
     viewAs === "operations" || viewAs === "owner" || viewAs === "executive" ? viewAs : "executive";
