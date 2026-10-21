@@ -24,6 +24,7 @@ import { DatabaseSync } from "node:sqlite";
 
 export const BASELINE_MIGRATION = "20260724000000_v1_5_baseline";
 export const STAGE_4A_MIGRATION = "20261021100000_stage4a_core_integration_foundation";
+export const STAGE_4B_MIGRATION = "20261021140000_stage4b_workflow";
 
 export interface GovernedMigrateOptions {
   /** Absolute path of the SQLite file (created when absent). */
@@ -410,22 +411,45 @@ export interface RollbackResult {
   legacyPreserved?: boolean;
 }
 
-/** Tables created by the Stage 4A migration (derived from its SQL; never hard-coded). */
-export function stage4aTableNames(repoRoot: string): string[] {
-  const sql = fs.readFileSync(path.join(migrationsDir(repoRoot), STAGE_4A_MIGRATION, "migration.sql"), "utf8");
+/** Tables created by a stage migration (derived from its SQL; never hard-coded). */
+function migrationTableNames(repoRoot: string, migration: string): string[] {
+  const sql = fs.readFileSync(path.join(migrationsDir(repoRoot), migration, "migration.sql"), "utf8");
   return [...sql.matchAll(/CREATE TABLE "([^"]+)"/g)].map((m) => m[1]!);
 }
 
+/** Tables created by the Stage 4A migration (derived from its SQL; never hard-coded). */
+export function stage4aTableNames(repoRoot: string): string[] {
+  return migrationTableNames(repoRoot, STAGE_4A_MIGRATION);
+}
+
+/** Tables created by the Stage 4B migration (derived from its SQL; never hard-coded). */
+export function stage4bTableNames(repoRoot: string): string[] {
+  return migrationTableNames(repoRoot, STAGE_4B_MIGRATION);
+}
+
+/** Stage 4A can only be reversed after Stage 4B has been reversed (4B tables reference 4A tables). */
 export async function governedRollbackStage4A(opts: RollbackOptions): Promise<RollbackResult> {
+  const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
+  if (applied?.includes(STAGE_4B_MIGRATION)) {
+    return { ok: false, reason: "Stage 4B is applied; roll Stage 4B back first (rollback-4b), then Stage 4A." };
+  }
+  return rollbackStage(opts, STAGE_4A_MIGRATION, "4a", (t) => t !== "dpos_migration_records");
+}
+
+export async function governedRollbackStage4B(opts: RollbackOptions): Promise<RollbackResult> {
+  return rollbackStage(opts, STAGE_4B_MIGRATION, "4b", () => true);
+}
+
+async function rollbackStage(opts: RollbackOptions, migration: string, label: string, countTable: (table: string) => boolean): Promise<RollbackResult> {
   const now = (opts.now ?? (() => new Date()))();
   const repoRoot = path.resolve(opts.repoRoot);
   const databaseFile = path.resolve(opts.databaseFile);
   const backupDir = opts.backupDir ?? path.join(path.dirname(databaseFile), "backups");
   const applied = appliedMigrationNames(databaseFile);
-  if (!applied || !applied.includes(STAGE_4A_MIGRATION)) {
-    return { ok: false, reason: "Stage 4A migration is not applied to this database." };
+  if (!applied || !applied.includes(migration)) {
+    return { ok: false, reason: `Stage ${label.toUpperCase()} migration is not applied to this database.` };
   }
-  const newTables = stage4aTableNames(repoRoot).filter((t) => t !== "dpos_migration_records");
+  const newTables = migrationTableNames(repoRoot, migration).filter(countTable);
   const ro = openReadOnly(databaseFile);
   const counts: Record<string, number> = {};
   try {
@@ -444,14 +468,14 @@ export async function governedRollbackStage4A(opts: RollbackOptions): Promise<Ro
     };
   }
   const legacyTables = legacyTableNames(repoRoot);
-  const backupFile = backup(databaseFile, backupDir, "pre-rollback-4a", now);
+  const backupFile = backup(databaseFile, backupDir, `pre-rollback-${label}`, now);
   const before = combineFingerprint(legacyFingerprint(databaseFile, legacyTables));
-  const down = fs.readFileSync(path.join(migrationsDir(repoRoot), STAGE_4A_MIGRATION, "down.sql"), "utf8");
+  const down = fs.readFileSync(path.join(migrationsDir(repoRoot), migration, "down.sql"), "utf8");
   const db = new DatabaseSync(databaseFile);
   try {
     db.exec("BEGIN");
     db.exec(down);
-    db.prepare(`DELETE FROM _prisma_migrations WHERE migration_name = ?`).run(STAGE_4A_MIGRATION);
+    db.prepare(`DELETE FROM _prisma_migrations WHERE migration_name = ?`).run(migration);
     db.exec("COMMIT");
   } catch (e) {
     try {

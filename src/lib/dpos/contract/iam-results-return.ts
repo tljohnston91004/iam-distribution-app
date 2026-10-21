@@ -16,6 +16,15 @@ export const IAM_RESULTS_RETURN_V1 = "IAM_RESULTS_RETURN_V1" as const;
 export const IAM_RESULTS_RETURN_CONTRACT_VERSION = "1.0" as const;
 export const IAM_ORIGINATING_MODULE = "IAM" as const;
 export const IAM_PROVENANCE_CONTRACT_FAMILY = "IAM_RESULTS_RETURN" as const;
+/**
+ * Additive revision within contract version 1.0 (Stage 4B state-contract closeout, 4B-D1..D4/D6). Every earlier event stays valid:
+ *   - action status NOT_STARTED, event MANAGEMENT_DECISION_RESOLVED and the progress.managementDecisionRequired /
+ *     decisionRequiredCategory / decisionResolution fields are new (additive);
+ *   - CANDIDATE_CREATED no longer requires domainScore / domainRank (scoring and ranking belong to a later stage; a later
+ *     stage may still send them);
+ *   - OWNER_ACCEPTED may carry a progress section (actionStatus NOT_STARTED).
+ */
+export const IAM_RESULTS_RETURN_CONTRACT_REVISION = "1.0-r4b" as const;
 
 /** Contract versions this build can validate and interpret. Additive evolution only: add, never remove. */
 export const IAM_RESULTS_RETURN_SUPPORTED_VERSIONS = ["1.0"] as const;
@@ -43,6 +52,7 @@ export const IAM_EVENT_TYPES = [
   "PROGRESS_UPDATED",
   "CONDITION_REDUCTION_UPDATED",
   "MANAGEMENT_DECISION_REQUIRED",
+  "MANAGEMENT_DECISION_RESOLVED",
   "ACTION_PAUSED",
   "ACTION_REACTIVATED",
   "ACTION_BLOCKED",
@@ -69,8 +79,12 @@ export const IAM_LIFECYCLE_STATES = [
   "OUTCOME_VALIDATED",
   "CLOSED",
 ] as const;
-/** IAM Functional Specification section 8.1 Standard Execution Status. */
+/**
+ * IAM Functional Specification section 8.1 Standard Execution Status, plus NOT_STARTED (4B-D3): the action is approved /
+ * assigned / accepted but execution has not begun. Historical events without this status stay valid.
+ */
 export const IAM_ACTION_STATUSES = [
+  "NOT_STARTED",
   "ON_TRACK",
   "ATTENTION",
   "AT_RISK",
@@ -208,6 +222,12 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     blockedReason: LS,
     reactivationCondition: LS,
     decisionRequiredReason: LS,
+    /** Explicit active flag (4B-D2). Only MANAGEMENT_DECISION_REQUIRED (true) and MANAGEMENT_DECISION_RESOLVED (false) carry it. */
+    managementDecisionRequired: B,
+    /** Short machine category of the requirement (for example AT_RISK, OVERDUE, BLOCKED, PAUSE_REQUEST, OWNER_DISCUSSION). */
+    decisionRequiredCategory: S,
+    /** How the requirement was resolved (MANAGEMENT_DECISION_RESOLVED). */
+    decisionResolution: LS,
   },
   plan: {
     approvedPlanStatus: E(IAM_PLAN_STATUSES),
@@ -276,6 +296,10 @@ export type IamEventSpec = {
   impliedLifecycleState?: IamLifecycleState;
   /** Action status implied by the event type (explicit progress.actionStatus must agree). */
   impliedActionStatus?: IamActionStatus;
+  /** Statuses an explicit progress.actionStatus may take on this event type (when narrower than all of them). */
+  allowedActionStatuses?: readonly IamActionStatus[];
+  /** Explicit management-decision-required flag implied by the event type (4B-D2). */
+  impliedManagementDecisionRequired?: boolean;
 };
 
 export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
@@ -287,9 +311,8 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
       "source.iamSourceRunId",
       "source.iamSourceVersion",
       "recommendation.title",
-      "recommendation.domainScore",
-      "recommendation.domainRank",
     ],
+    // domainScore / domainRank are optional (4B-D6): scoring and ranking are a later stage; nothing synthesizes placeholders.
     impliedLifecycleState: "CANDIDATE",
   },
   CANDIDATE_RECALCULATED: {
@@ -352,9 +375,11 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
   TASK_OWNER_ASSIGNED: { family: "ASSIGNMENT", sections: ["assignment"], required: ["assignment.taskOwner"] },
   OWNER_ACCEPTED: {
     family: "ASSIGNMENT",
-    sections: ["assignment"],
+    sections: ["assignment", "progress"],
     required: ["assignment.taskOwner", "assignment.ownerResponseAt"],
     impliedLifecycleState: "ACTIVE",
+    // An accepted action that has not begun is NOT_STARTED (4B-D3).
+    allowedActionStatuses: ["NOT_STARTED"],
   },
   OWNER_DISCUSSION_REQUESTED: {
     family: "ASSIGNMENT",
@@ -386,6 +411,13 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
     family: "ACTION_PROGRESS",
     sections: ["progress"],
     required: ["progress.decisionRequiredReason"],
+    impliedManagementDecisionRequired: true,
+  },
+  MANAGEMENT_DECISION_RESOLVED: {
+    family: "ACTION_PROGRESS",
+    sections: ["progress"],
+    required: ["progress.decisionResolution"],
+    impliedManagementDecisionRequired: false,
   },
   ACTION_PAUSED: {
     family: "ACTION_PROGRESS",
@@ -866,6 +898,33 @@ export function validateIamResultsReturn(body: unknown): IamValidationResult {
         code: "STATE_CONFLICT",
         message: `${eventType} implies action status ${spec.impliedActionStatus}, not ${String(actionStatus)}`,
       });
+    }
+    if (spec.allowedActionStatuses && actionStatus !== undefined && !spec.allowedActionStatuses.includes(actionStatus as IamActionStatus)) {
+      issues.push({
+        path: "progress.actionStatus",
+        code: "STATE_CONFLICT",
+        message: `${eventType} accepts only action status ${spec.allowedActionStatuses.join(", ")}, not ${String(actionStatus)}`,
+      });
+    }
+    const decisionFlag = authorized.progress.managementDecisionRequired;
+    if (spec.impliedManagementDecisionRequired !== undefined) {
+      if (decisionFlag !== undefined && decisionFlag !== spec.impliedManagementDecisionRequired) {
+        issues.push({
+          path: "progress.managementDecisionRequired",
+          code: "STATE_CONFLICT",
+          message: `${eventType} implies managementDecisionRequired=${String(spec.impliedManagementDecisionRequired)}, not ${String(decisionFlag)}`,
+        });
+      }
+    } else {
+      for (const field of ["managementDecisionRequired", "decisionRequiredCategory", "decisionResolution"]) {
+        if (authorized.progress[field] !== undefined) {
+          issues.push({
+            path: `progress.${field}`,
+            code: "STATE_CONFLICT",
+            message: `progress.${field} is accepted only on MANAGEMENT_DECISION_REQUIRED / MANAGEMENT_DECISION_RESOLVED, not on ${eventType}`,
+          });
+        }
+      }
     }
     if (eventType === "RECURRENCE_LINKED" && authorized.recurrence.priorCandidateId === authorized.subject.candidateId) {
       issues.push({

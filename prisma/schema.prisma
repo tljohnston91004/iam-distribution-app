@@ -953,6 +953,20 @@ model IamCoreCandidate {
   ownerships         IamCoreOwnership[]
   executionState     IamCoreExecutionState?
   outcome            IamCoreOutcome?
+  // Stage 4B workflow relations (no columns on this table)
+  workflowState      IamCoreWorkflowState?
+  workflowHistory    IamCoreWorkflowHistory[]
+  managementDecisions IamCoreManagementDecision[]
+  suppressions       IamCoreSuppression[]
+  evidence           IamCoreCandidateEvidence[]
+  assignmentEvents   IamCoreAssignmentEvent[]
+  actionTracking     IamCoreActionTracking?
+  progressUpdates    IamCoreProgressUpdate[]
+  actionStatusHistory IamCoreActionStatusHistory[]
+  decisionRequired   IamCoreDecisionRequired[]
+  pauseRequests      IamCorePauseRequest[]
+  blockers           IamCoreBlocker[]
+  contributorAuthorizations IamCoreContributorAuthorization[]
 
   @@index([dposCompanyId, lifecycleState])
   @@index([dposCompanyId, groupedConditionKey])
@@ -1076,4 +1090,350 @@ model IamCoreOutcome {
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   @@map("iam_core_outcomes")
+}
+
+// =====================================================================================================================
+// Stage 4B: governed candidate / management-decision / ownership / active-action WORKFLOW (additive).
+//
+// New tables only. No V1.5 table and no Stage 4A column is altered; the 4A candidate row keeps its identity and only
+// its lifecycleState / closedAt are advanced by the workflow service. Ledgers (history, decisions, assignment events,
+// progress updates, status history) are append-only (database triggers). Nothing here scores, ranks, recommends,
+// computes a Health Score, or learns: scores/ranks are supplied by a later stage and only carried.
+// =====================================================================================================================
+
+/// Workflow position of one candidate (1:1 with iam_core_candidates). Approved path: NEW_CANDIDATE -> PRESENTED ->
+/// APPROVED_ASSIGNED -> PENDING_OWNER_ACCEPTANCE -> ACTIVE_ACTION -> COMPLETED_VALIDATED -> COMPLETED_HISTORY, with the
+/// management branch states REJECTED / SUPPRESSED / ESCALATED / RISK_ACCEPTED. "Holdover" is deliberately NOT a state.
+model IamCoreWorkflowState {
+  candidateId          String   @id @map("candidate_id")
+  candidate            IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId        String   @map("dpos_company_id")
+  workflowState        String   @map("workflow_state")
+  /// Denormalised from the candidate so rejection history can be counted per underlying condition.
+  groupedConditionKey  String   @map("grouped_condition_key")
+  title                String?
+  category             String?
+  candidateType        String?  @map("candidate_type")
+  presentedAt          DateTime? @map("presented_at")
+  presentationCount    Int      @default(0) @map("presentation_count")
+  /// Forced re-review (suppression expiry, became critical, materially worsened, re-entered, management release).
+  reReviewRequired     Boolean  @default(false) @map("re_review_required")
+  reReviewReason       String?  @map("re_review_reason")
+  reReviewRaisedAt     DateTime? @map("re_review_raised_at")
+  /// Qualified rejections of this recurring/continuing condition recorded BEFORE this candidate existed.
+  priorQualifiedRejections Int  @default(0) @map("prior_qualified_rejections")
+  /// Set when the condition has reached the repeated-rejection threshold (3); senior review is then required.
+  repeatedRejectionFlag Boolean @default(false) @map("repeated_rejection_flag")
+  seniorReviewRequired Boolean  @default(false) @map("senior_review_required")
+  escalatedTo          String?  @map("escalated_to")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([dposCompanyId, workflowState])
+  @@index([dposCompanyId, groupedConditionKey])
+  @@map("iam_core_workflow_states")
+}
+
+/// Append-only ledger of every workflow state change (full history is preserved).
+model IamCoreWorkflowHistory {
+  historyId     String   @id @default(uuid()) @map("history_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId String   @map("dpos_company_id")
+  fromState     String?  @map("from_state")
+  toState       String   @map("to_state")
+  operation     String
+  actorId       String   @map("actor_id")
+  actorRole     String   @map("actor_role")
+  reason        String?
+  detailJson    String?  @map("detail_json")
+  at            DateTime @map("at")
+
+  @@index([candidateId, at])
+  @@map("iam_core_workflow_history")
+}
+
+/// Append-only management decision ledger. Keeps the ORIGINAL system recommendation reference and the management plan
+/// reference separately; the decision never rewrites either.
+model IamCoreManagementDecision {
+  decisionId             String   @id @default(uuid()) @map("decision_id")
+  candidateId            String   @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId          String   @map("dpos_company_id")
+  groupedConditionKey    String   @map("grouped_condition_key")
+  /// APPROVE, REJECT, SUPPRESS, ESCALATE, RISK_ACCEPT, RETURN_FOR_REVIEW, RELEASE_SUPPRESSION, PAUSE_APPROVED,
+  /// PAUSE_DENIED, COMPLETION_VALIDATED, DECISION_RESOLVED
+  decisionType           String   @map("decision_type")
+  reason                 String?
+  actorId                String   @map("actor_id")
+  actorRole              String   @map("actor_role")
+  decidedAt              DateTime @map("decided_at")
+  systemRecommendationId String?  @map("system_recommendation_id")
+  recommendationVersion  Int?     @map("recommendation_version")
+  planId                 String?  @map("plan_id")
+  planVersion            Int?     @map("plan_version")
+  /// A rejection of a candidate whose underlying condition still qualified (counts toward repeated-rejection review).
+  qualifiedRejection     Boolean  @default(false) @map("qualified_rejection")
+  rejectionOrdinal       Int?     @map("rejection_ordinal")
+  repeatedRejectionFlagged Boolean @default(false) @map("repeated_rejection_flagged")
+  detailJson             String?  @map("detail_json")
+
+  @@index([candidateId, decidedAt])
+  @@index([dposCompanyId, groupedConditionKey, decisionType])
+  @@map("iam_core_management_decisions")
+}
+
+/// Suppression governance. Never erases the candidate, its recommendation, score or history.
+model IamCoreSuppression {
+  suppressionId String   @id @default(uuid()) @map("suppression_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId String   @map("dpos_company_id")
+  reason        String
+  actorId       String   @map("actor_id")
+  startedAt     DateTime @map("started_at")
+  /// Policy maximum (weekly cycles) in force when the suppression was made, and the cycles actually granted.
+  maxCycles     Int      @map("max_cycles")
+  cycles        Int
+  reviewDueAt   DateTime @map("review_due_at")
+  /// ACTIVE, RELEASED, EXPIRED
+  status        String   @default("ACTIVE")
+  endedAt       DateTime? @map("ended_at")
+  endedBy       String?  @map("ended_by")
+  /// MANAGEMENT_RELEASE, EXPIRED, BECAME_CRITICAL, MATERIALLY_WORSENED, RE_ENTERED
+  endTrigger    String?  @map("end_trigger")
+  endReason     String?  @map("end_reason")
+
+  @@index([candidateId, status])
+  @@map("iam_core_suppressions")
+}
+
+/// Drill-down evidence attached to a candidate: REFERENCES only (SKU / vendor / category / PO / backorder identifiers and
+/// the Data Hub source run), never the governed dataset itself.
+model IamCoreCandidateEvidence {
+  evidenceId    String   @id @default(uuid()) @map("evidence_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  evidenceRef   String   @map("evidence_ref")
+  /// SKU, VENDOR, CATEGORY, PURCHASE_ORDER, CUSTOMER_BACKORDER, OTHER
+  kind          String
+  sku           String?
+  vendor        String?
+  category      String?
+  poRef         String?  @map("po_ref")
+  backorderRef  String?  @map("backorder_ref")
+  sourceRunId   String?  @map("source_run_id")
+  detailJson    String?  @map("detail_json")
+  attachedAt    DateTime @map("attached_at")
+  attachedBy    String   @map("attached_by")
+
+  @@unique([candidateId, evidenceRef])
+  @@map("iam_core_candidate_evidence")
+}
+
+/// Append-only assignment / reassignment / owner-response history (ownership rows themselves are never rewritten).
+model IamCoreAssignmentEvent {
+  assignmentEventId String   @id @default(uuid()) @map("assignment_event_id")
+  candidateId       String   @map("candidate_id")
+  candidate         IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId     String   @map("dpos_company_id")
+  /// DEPARTMENT_ASSIGNED, OWNER_ASSIGNED, REASSIGNED, OWNER_ACCEPTED, OWNER_DISCUSSION_REQUESTED, CONTRIBUTORS_CHANGED,
+  /// CONTRIBUTOR_AUTHORIZED, CONTRIBUTOR_AUTHORIZATION_REVOKED
+  kind              String
+  fromDepartment    String?  @map("from_department")
+  toDepartment      String?  @map("to_department")
+  fromOwnerId       String?  @map("from_owner_id")
+  toOwnerId         String?  @map("to_owner_id")
+  toOwnerName       String?  @map("to_owner_name")
+  reason            String?
+  note              String?
+  actorId           String   @map("actor_id")
+  actorRole         String   @map("actor_role")
+  onBehalf          Boolean  @default(false) @map("on_behalf")
+  planVersionBefore Int?     @map("plan_version_before")
+  planVersionAfter  Int?     @map("plan_version_after")
+  at                DateTime @map("at")
+
+  @@index([candidateId, at])
+  @@map("iam_core_assignment_events")
+}
+
+/// Current active-action tracking (1:1). ACTION COMPLETION and CONDITION REDUCTION are separate columns and are never
+/// combined. The contract-vocabulary projection is mirrored into iam_core_execution_states in the same transaction.
+model IamCoreActionTracking {
+  candidateId            String   @id @map("candidate_id")
+  candidate              IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId          String   @map("dpos_company_id")
+  /// NOT_STARTED, ON_TRACK, ATTENTION, AT_RISK, OVERDUE, PAUSED, BLOCKED, COMPLETED (NOT_STARTED is IAM-internal).
+  actionStatus           String   @default("NOT_STARTED") @map("action_status")
+  statusReasonsJson      String?  @map("status_reasons_json")
+  statusEvaluatedAt      DateTime? @map("status_evaluated_at")
+  targetStart            DateTime? @map("target_start")
+  targetResolution       DateTime? @map("target_resolution")
+  startedAt              DateTime? @map("started_at")
+  completedAt            DateTime? @map("completed_at")
+  /// A. action completion (official, owner-controlled).
+  actionCompletionPct    Float?   @map("action_completion_pct")
+  /// B. condition reduction = (baseline - current) / baseline x 100, only with a valid quantitative baseline. The raw
+  /// value is kept (it is negative when the condition worsened); null = NOT YET MEASURED.
+  conditionReductionPct  Float?   @map("condition_reduction_pct")
+  /// MEASURED or NOT_YET_MEASURED.
+  conditionReductionStatus String @default("NOT_YET_MEASURED") @map("condition_reduction_status")
+  baselineExposure       Float?   @map("baseline_exposure")
+  currentExposure        Float?   @map("current_exposure")
+  exposureUnit           String?  @map("exposure_unit")
+  /// NOT_YET_MEASURED, IMPROVING, ON_TARGET, FULLY_RESOLVED, SUBSTANTIALLY_RESOLVED, PARTIALLY_RESOLVED,
+  /// CONTROLLED_BUT_CONTINUING, UNSUCCESSFUL, NO_LONGER_APPLICABLE (workflow support only; attribution is a later stage).
+  resolutionStatus       String   @default("NOT_YET_MEASURED") @map("resolution_status")
+  nextMilestone          String?  @map("next_milestone")
+  nextMilestoneDue       DateTime? @map("next_milestone_due")
+  latestOwnerUpdateAt    DateTime? @map("latest_owner_update_at")
+  latestOwnerUpdateBy    String?  @map("latest_owner_update_by")
+  latestOwnerUpdateNote  String?  @map("latest_owner_update_note")
+  /// Last values sent to the Data Hub (materiality filter: meaningless small changes do not create events).
+  lastProgressEventPct   Float?   @map("last_progress_event_pct")
+  lastReductionEventPct  Float?   @map("last_reduction_event_pct")
+  completionRequestedAt  DateTime? @map("completion_requested_at")
+  completionRequestedBy  String?  @map("completion_requested_by")
+  completionValidatedAt  DateTime? @map("completion_validated_at")
+  completionValidatedBy  String?  @map("completion_validated_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([dposCompanyId, actionStatus])
+  @@map("iam_core_action_tracking")
+}
+
+/// Append-only ledger of progress / condition-reduction / note / support entries with prior and new values.
+model IamCoreProgressUpdate {
+  updateId      String   @id @default(uuid()) @map("update_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId String   @map("dpos_company_id")
+  /// OFFICIAL_PROGRESS, CONDITION_REDUCTION, BASELINE, MILESTONE, RESOLUTION_STATUS, NOTE, SUPPORTING_WORK, EVIDENCE
+  kind          String
+  /// Official values can only be written by the primary owner (or an authorized manager / authorized contributor).
+  official      Boolean  @default(false)
+  actorId       String   @map("actor_id")
+  actorRole     String   @map("actor_role")
+  at            DateTime @map("at")
+  priorValueJson String? @map("prior_value_json")
+  newValueJson  String?  @map("new_value_json")
+  note          String?
+  evidenceRef   String?  @map("evidence_ref")
+
+  @@index([candidateId, at])
+  @@map("iam_core_progress_updates")
+}
+
+/// Append-only action-status history (status model transitions, with the reasons and the What-Changed marker).
+model IamCoreActionStatusHistory {
+  statusHistoryId String   @id @default(uuid()) @map("status_history_id")
+  candidateId     String   @map("candidate_id")
+  candidate       IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId   String   @map("dpos_company_id")
+  fromStatus      String?  @map("from_status")
+  toStatus        String   @map("to_status")
+  trigger         String
+  reasonsJson     String?  @map("reasons_json")
+  actorId         String   @map("actor_id")
+  at              DateTime @map("at")
+  /// AT_RISK / OVERDUE / BLOCKED transitions are marked for the later What Changed Since Last Review section.
+  includeInWhatChanged Boolean @default(false) @map("include_in_what_changed")
+  decisionRequiredRaised Boolean @default(false) @map("decision_required_raised")
+
+  @@index([candidateId, at])
+  @@map("iam_core_action_status_history")
+}
+
+/// MANAGEMENT DECISION REQUIRED (active-action intervention). Distinct from a NEW candidate awaiting initial approval,
+/// which is workflow state PRESENTED. One OPEN flag per (candidate, reason).
+model IamCoreDecisionRequired {
+  flagId        String   @id @default(uuid()) @map("flag_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId String   @map("dpos_company_id")
+  /// AT_RISK, OVERDUE, BLOCKED, PAUSE_REQUEST, OWNER_DISCUSSION, MATERIAL_DEPENDENCY, MATERIAL_PLAN_DEVIATION,
+  /// ESCALATION_REQUEST, COMPLETION_VALIDATION, PAUSE_REVIEW_DUE, CONDITION_WORSENED
+  reasonCode    String   @map("reason_code")
+  detail        String?
+  raisedAt      DateTime @map("raised_at")
+  raisedBy      String   @map("raised_by")
+  /// OPEN, RESOLVED
+  status        String   @default("OPEN")
+  resolvedAt    DateTime? @map("resolved_at")
+  resolvedBy    String?  @map("resolved_by")
+  resolution    String?
+  relatedEntityId String? @map("related_entity_id")
+
+  @@index([candidateId, status])
+  @@index([dposCompanyId, status])
+  @@map("iam_core_decision_required")
+}
+
+/// Pause workflow: the owner REQUESTS, management approves or denies. Owners never self-approve a pause.
+model IamCorePauseRequest {
+  pauseRequestId      String   @id @default(uuid()) @map("pause_request_id")
+  candidateId         String   @map("candidate_id")
+  candidate           IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId       String   @map("dpos_company_id")
+  requestedBy         String   @map("requested_by")
+  requestedAt         DateTime @map("requested_at")
+  /// The date the pause is requested to start.
+  requestedDate       DateTime @map("requested_date")
+  reason              String
+  expectedDurationDays Int?    @map("expected_duration_days")
+  reactivationCondition String? @map("reactivation_condition")
+  /// REQUESTED, APPROVED, DENIED, REACTIVATED
+  status              String   @default("REQUESTED")
+  decidedBy           String?  @map("decided_by")
+  decidedAt           DateTime? @map("decided_at")
+  decisionReason      String?  @map("decision_reason")
+  pausedAt            DateTime? @map("paused_at")
+  /// Approved pauses require future review / reactivation.
+  reviewDueAt         DateTime? @map("review_due_at")
+  reactivatedAt       DateTime? @map("reactivated_at")
+  reactivatedBy       String?  @map("reactivated_by")
+  reactivationNote    String?  @map("reactivation_note")
+
+  @@index([candidateId, status])
+  @@map("iam_core_pause_requests")
+}
+
+/// Blocker / dependency record for an active action.
+model IamCoreBlocker {
+  blockerId     String   @id @default(uuid()) @map("blocker_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId String   @map("dpos_company_id")
+  reason        String
+  dependency    String?
+  material      Boolean  @default(true)
+  raisedBy      String   @map("raised_by")
+  raisedAt      DateTime @map("raised_at")
+  /// OPEN, CLEARED
+  status        String   @default("OPEN")
+  clearedBy     String?  @map("cleared_by")
+  clearedAt     DateTime? @map("cleared_at")
+  clearNote     String?  @map("clear_note")
+
+  @@index([candidateId, status])
+  @@map("iam_core_blockers")
+}
+
+/// Explicit management authorization letting a contributor write OFFICIAL progress values (default: contributors may
+/// only add notes, supporting work and evidence).
+model IamCoreContributorAuthorization {
+  authorizationId String   @id @default(uuid()) @map("authorization_id")
+  candidateId     String   @map("candidate_id")
+  candidate       IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  userId          String   @map("user_id")
+  grantedBy       String   @map("granted_by")
+  grantedAt       DateTime @map("granted_at")
+  reason          String
+  revokedAt       DateTime? @map("revoked_at")
+  revokedBy       String?  @map("revoked_by")
+
+  @@index([candidateId, userId])
+  @@map("iam_core_contributor_authorizations")
 }

@@ -1,10 +1,10 @@
 /**
- * IAM regression harness (DPOS Stage 4A).
+ * IAM regression harness (DPOS Stage 4A/4B).
  *
  * Runs the existing V1.5 test scripts (unchanged) against an ISOLATED temporary SQLite database so that no test ever
  * touches data/iam.db. The database is built either:
  *   --baseline-only   from the V1.5 baseline migration only (the pre-Stage-4A structure), or
- *   (default)         with the full governed migration chain (V1.5 baseline + Stage 4A).
+ *   (default)         with the full governed migration chain (V1.5 baseline + Stage 4A + Stage 4B).
  *
  * Usage: npx tsx scripts/run-iam-regression.ts [--baseline-only] [--only name1,name2] [--json out.json]
  */
@@ -65,7 +65,7 @@ async function main() {
       process.exit(2);
     }
   }
-  console.log(`# IAM regression — DB mode: ${baselineOnly ? "V1.5 baseline only" : "baseline + Stage 4A"}`);
+  console.log(`# IAM regression — DB mode: ${baselineOnly ? "V1.5 baseline only" : "baseline + Stage 4A + Stage 4B"}`);
   console.log(`# Isolated DB: ${dbFile}`);
 
   const results: Array<{ name: string; exitCode: number | null; seconds: number; tail: string }> = [];

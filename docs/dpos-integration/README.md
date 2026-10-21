@@ -106,3 +106,19 @@ DPOS checkout (no path is searched, guessed or encoded; the test is skipped visi
 - **D7** The vendored, hash-pinned contract is temporary. **Pre-customer-release requirement:** consume the published `@dpos/shared` package; DPOS and IAM contract definitions must not drift.
 - **D8** Front-door IAM proxy/user routing is deferred; the current front-door enforcement architecture is unchanged.
 - **D9** Stage 4A is committed and pushed separately in each repository on workshop branches; neither is merged to main.
+## 10. Stage 4B: governed candidate workflow (src/lib/dpos/workflow)
+
+Additive migration `20261021140000_stage4b_workflow` (13 tables, append-only ledgers, vocabulary and closed-candidate triggers;
+`rollback-4b` removes it). Clean domain/service functions (no page, route or session coupling): evidence -> grouped candidate ->
+presented -> management decision (approve / reject / suppress / escalate / risk accept / return for review) -> responsible
+department -> task owner -> owner acceptance (or Request Discussion) -> active action -> progress and condition-reduction tracking
+-> aging / escalation (Management Decision Required) -> completion -> management validation -> Completed History.
+
+- The system recommendation is immutable; the management plan is a separate, versioned record with a mandatory deviation reason.
+- A CLOSED candidate (rejected / risk-accepted, or formally closed in the later closeout stage) is never reopened; a returning condition is a NEW candidate linked as a recurrence.
+- Action completion and condition reduction are stored and sent separately; reduction is only computed against a valid baseline.
+- Every meaningful transition writes its Results Return event(s) to the Stage 4A outbox in the same transaction; meaningless changes
+  write none. No scoring, ranking, Health Score, recommendation engine or closeout learning exists in this stage (4C and later).
+- Production identity mapping for actors (who is a manager / task owner) is deferred; the API takes an explicit `WorkflowActor`.
+- Product Owner review corrections (4B-D1..D7): the Data Hub preserves `actionStartedAt` / `actionCompletedAt` when later events omit them; management decisions are explicit (`MANAGEMENT_DECISION_REQUIRED` then `MANAGEMENT_DECISION_RESOLVED`, emitted by IAM whenever the requirement is resolved); `NOT_STARTED` is a first-class contract status (reported by `OWNER_ACCEPTED`); Completed History is execution completion only (`executionCompleted = true`, `closeoutCompleted = false`, candidate not closed, no outcome written; new evidence waits for the later closeout stage); a pause never extends the target dates (reactivation re-evaluates against the original target); `domainScore` / `domainRank` are deferred to Stage 4C and stay null (supplying them is refused). Contract revision `1.0-r4b`, vendored hash in `CONTRACT-SOURCE.json`.
+- Tests: `npm run test:dpos-4a` runs the whole `tests/dpos` suite (4A + 4B, including live Data Hub tests).

@@ -3,7 +3,8 @@
  *
  *   npx tsx scripts/iam-migrate.ts status
  *   npx tsx scripts/iam-migrate.ts apply --yes [--dry-run] [--backup-dir <dir>]
- *   npx tsx scripts/iam-migrate.ts rollback-4a --yes [--allow-data-loss] [--backup-dir <dir>]
+ *   npx tsx scripts/iam-migrate.ts rollback-4b --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4B workflow tables only)
+ *   npx tsx scripts/iam-migrate.ts rollback-4a --yes [--allow-data-loss] [--backup-dir <dir>]   (refused while 4B is applied)
  *
  * The database is taken from DATABASE_URL (or --database <file>). `apply` and `rollback-4a` change nothing without
  * --yes. Apply always takes a verified backup first, proves the V1.5 data is unchanged, and restores the backup
@@ -13,8 +14,10 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   STAGE_4A_MIGRATION,
+  STAGE_4B_MIGRATION,
   governedMigrate,
   governedRollbackStage4A,
+  governedRollbackStage4B,
   legacyTableNames,
   listMigrationNames,
   listUserTables,
@@ -61,6 +64,7 @@ async function main() {
       knownMigrations: known,
       pending: known.filter((m) => !(applied ?? []).includes(m)),
       stage4aApplied: (applied ?? []).includes(STAGE_4A_MIGRATION),
+      stage4bApplied: (applied ?? []).includes(STAGE_4B_MIGRATION),
     }, null, 2));
     return;
   }
@@ -80,7 +84,16 @@ async function main() {
     console.log(JSON.stringify(r, null, 2));
     process.exit(r.ok ? 0 : 1);
   }
-  console.error("Usage: iam-migrate.ts status | apply --yes [--dry-run] | rollback-4a --yes [--allow-data-loss]");
+  if (cmd === "rollback-4b") {
+    if (!flag("--yes")) {
+      console.log("Rollback removes ONLY the Stage 4B workflow tables (V1.5 and Stage 4A tables untouched). Re-run with --yes to proceed.");
+      process.exit(2);
+    }
+    const r = await governedRollbackStage4B({ databaseFile, repoRoot: REPO, backupDir, allowDataLoss: flag("--allow-data-loss") });
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(r.ok ? 0 : 1);
+  }
+  console.error("Usage: iam-migrate.ts status | apply --yes [--dry-run] | rollback-4b --yes [--allow-data-loss] | rollback-4a --yes [--allow-data-loss] (4b first)");
   process.exit(2);
 }
 
