@@ -8,6 +8,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import { DposError } from "../errors";
+import { CLOSEOUT_ACTION_LABELS, CLOSEOUT_BOARD_ACTIONS, performCloseoutAction, type CloseoutBoardAction } from "./closeout-actions";
 import {
   acceptOwnership,
   approveCandidate,
@@ -43,6 +44,8 @@ export const BOARD_ACTIONS = [
   "updateConditionReduction",
   "raiseBlocker",
   "completeAction",
+  // Stage 4E: formal closeout, measurement, learning and recurrence review
+  ...CLOSEOUT_BOARD_ACTIONS,
 ] as const;
 export type BoardAction = (typeof BOARD_ACTIONS)[number];
 
@@ -62,6 +65,7 @@ export const BOARD_ACTION_LABELS: Record<BoardAction, string> = {
   updateConditionReduction: "Record exposure",
   raiseBlocker: "Raise blocker",
   completeAction: "Mark complete",
+  ...CLOSEOUT_ACTION_LABELS,
 };
 
 type Body = Record<string, unknown>;
@@ -170,6 +174,15 @@ export async function performBoardAction(db: PrismaClient, ctx: Ctx, actor: Work
       break;
     case "completeAction":
       result = await completeAction(db, ctx, actor, candidateId, { note: text(body, "note"), at });
+      break;
+    case "startCloseout":
+    case "recordObservation":
+    case "recordMeasurement":
+    case "approveCloseout":
+    case "recordLearning":
+    case "completeCloseout":
+    case "resolveRecurrenceReview":
+      result = await performCloseoutAction(db, ctx, actor, candidateId, a as CloseoutBoardAction, body, at);
       break;
   }
   return { action: a, label, candidateId, ok: true, message: `${label}: done.`, result };

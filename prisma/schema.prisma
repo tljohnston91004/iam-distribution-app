@@ -974,6 +974,10 @@ model IamCoreCandidate {
   forcedReviews      IamCoreForcedReview[]
   emergencyReviews   IamCoreEmergencyReview[]
   contributorAuthorizations IamCoreContributorAuthorization[]
+  // Stage 4E closeout relations (no columns on this table)
+  closeout           IamCoreCloseout?
+  recurrenceLinks    IamCoreRecurrenceLink[] @relation("RecurrenceNewCandidate")
+  recurrenceLinksAsPrior IamCoreRecurrenceLink[] @relation("RecurrencePriorCandidate")
 
   @@index([dposCompanyId, lifecycleState])
   @@index([dposCompanyId, groupedConditionKey])
@@ -1741,4 +1745,268 @@ model IamCoreBoardReview {
 
   @@index([dposCompanyId, reviewedAt])
   @@map("iam_core_board_reviews")
+}
+
+
+// =====================================================================================================================
+// Stage 4E: formal closeout, outcome attribution, recurrence and learning (additive; no earlier table is altered).
+// =====================================================================================================================
+
+/// The closeout case of one execution-complete candidate (exactly one per candidate). The case header moves STARTED -> MEASURED ->
+/// APPROVED -> CLOSED; CLOSED is final (a database trigger refuses any later change). Every measurement / assessment is an immutable
+/// version in IamCoreCloseoutVersion; every approval, learning record and history entry is append-only.
+model IamCoreCloseout {
+  closeoutId            String   @id @default(uuid()) @map("closeout_id")
+  candidateId           String   @unique @map("candidate_id")
+  candidate             IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId         String   @map("dpos_company_id")
+  groupedConditionKey   String   @map("grouped_condition_key")
+  /// STARTED, MEASURED, APPROVED, CLOSED
+  status                String   @default("STARTED")
+  /// Latest closeout version (0 until the first measurement / assessment is recorded).
+  currentVersion        Int      @default(0) @map("current_version")
+  /// The version management approved; cleared when a newer version is recorded before the lock.
+  approvedVersion       Int?     @map("approved_version")
+  planVersion           Int?     @map("plan_version")
+  recommendationVersion Int?     @map("recommendation_version")
+  startedAt             DateTime @map("started_at")
+  startedBy             String   @map("started_by")
+  startedByRole         String   @map("started_by_role")
+  approvedAt            DateTime? @map("approved_at")
+  approvedBy            String?  @map("approved_by")
+  /// The permanent lock. Set exactly once with CLOSED.
+  closedAt              DateTime? @map("closed_at")
+  closedBy              String?  @map("closed_by")
+  finalResolutionStatus String?  @map("final_resolution_status")
+  finalAttributionCategory String? @map("final_attribution_category")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  versions  IamCoreCloseoutVersion[]
+  approvals IamCoreCloseoutApproval[]
+  history   IamCoreCloseoutHistory[]
+  learning  IamCoreLearningRecord[]
+
+  @@index([dposCompanyId, status])
+  @@map("iam_core_closeouts")
+}
+
+/// One immutable measurement / assessment of a closeout. A revision is a NEW row; a prior version is never edited.
+model IamCoreCloseoutVersion {
+  versionId             String   @id @default(uuid()) @map("version_id")
+  closeoutId            String   @map("closeout_id")
+  closeout              IamCoreCloseout @relation(fields: [closeoutId], references: [closeoutId], onDelete: Restrict)
+  candidateId           String   @map("candidate_id")
+  dposCompanyId         String   @map("dpos_company_id")
+  closeoutVersion       Int      @map("closeout_version")
+  supersedesVersion     Int?     @map("supersedes_version")
+  /// MEASUREMENT (a value was measured) or NOT_YET_MEASURED (no adequate evidence yet: next date, reason and required evidence recorded).
+  assessmentKind        String   @map("assessment_kind")
+  recordedAt            DateTime @map("recorded_at")
+  recordedBy            String   @map("recorded_by")
+  recordedByRole        String   @map("recorded_by_role")
+  // ---- execution + measurement window
+  actionCompletedAt     DateTime? @map("action_completed_at")
+  actionCompletionPct   Float?   @map("action_completion_pct")
+  measurementStart      DateTime? @map("measurement_start")
+  measurementEnd        DateTime? @map("measurement_end")
+  evidenceCurrentThrough DateTime? @map("evidence_current_through")
+  nextMeasurementDate   DateTime? @map("next_measurement_date")
+  notYetMeasuredReason  String?  @map("not_yet_measured_reason")
+  requiredEvidenceJson  String?  @map("required_evidence_json")
+  // ---- measurement (units preserved; never summed across units)
+  baselineExposure      Float?   @map("baseline_exposure")
+  finalExposure         Float?   @map("final_exposure")
+  exposureUnit          String?  @map("exposure_unit")
+  /// (baseline - final) / baseline x 100, unclamped; null with NOT_MEASURABLE when the baseline is zero / missing or the final value is missing.
+  conditionReductionPct Float?   @map("condition_reduction_pct")
+  /// MEASURED or NOT_MEASURABLE
+  conditionReductionState String @map("condition_reduction_state")
+  residualJson          String?  @map("residual_json")
+  expectedVsActualJson  String?  @map("expected_vs_actual_json")
+  businessImpactJson    String?  @map("business_impact_json")
+  // ---- resolution: the system's definitional guidance and what this version asserts
+  recommendedStatus     String?  @map("recommended_status")
+  judgementRequired     Boolean  @default(false) @map("judgement_required")
+  recommendationBasisJson String @map("recommendation_basis_json")
+  /// One of the nine resolution statuses.
+  assessedStatus        String   @map("assessed_status")
+  assessmentOverrideReason String? @map("assessment_override_reason")
+  // ---- confidence + attribution (attribution is separate from the outcome)
+  /// HIGH, MEDIUM, LOW, INSUFFICIENT
+  outcomeConfidence     String   @map("outcome_confidence")
+  outcomeConfidenceRationale String? @map("outcome_confidence_rationale")
+  attributionCategory   String   @map("attribution_category")
+  attributionRationale  String   @map("attribution_rationale")
+  /// HIGH, MODERATE, LOW, NOT_MEASURABLE
+  attributionConfidence String   @map("attribution_confidence")
+  attributionEvidenceJson String? @map("attribution_evidence_json")
+  alternativesJson      String?  @map("alternatives_json")
+  recurrenceRisk        String   @default("UNKNOWN") @map("recurrence_risk")
+  recurrenceRiskRationale String? @map("recurrence_risk_rationale")
+  followUpRecommendation String? @map("follow_up_recommendation")
+  dataLimitationsJson   String?  @map("data_limitations_json")
+  evidenceRefsJson      String?  @map("evidence_refs_json")
+  observationRefsJson   String?  @map("observation_refs_json")
+  // ---- contexts captured read-only at the time of the version (scoring / Health are never recomputed or mutated)
+  scoringContextJson    String?  @map("scoring_context_json")
+  healthContextJson     String?  @map("health_context_json")
+  planContextJson       String?  @map("plan_context_json")
+  coiJson               String?  @map("coi_json")
+  contentHash           String   @map("content_hash")
+
+  approval IamCoreCloseoutApproval?
+
+  @@unique([closeoutId, closeoutVersion])
+  @@index([candidateId, closeoutVersion])
+  @@map("iam_core_closeout_versions")
+}
+
+/// Management approval of ONE closeout version: the system recommendation and the approved final status are both preserved.
+model IamCoreCloseoutApproval {
+  approvalId            String   @id @default(uuid()) @map("approval_id")
+  closeoutId            String   @map("closeout_id")
+  closeout              IamCoreCloseout @relation(fields: [closeoutId], references: [closeoutId], onDelete: Restrict)
+  candidateId           String   @map("candidate_id")
+  dposCompanyId         String   @map("dpos_company_id")
+  closeoutVersion       Int      @map("closeout_version")
+  version               IamCoreCloseoutVersion @relation(fields: [closeoutId, closeoutVersion], references: [closeoutId, closeoutVersion], onDelete: Restrict)
+  recommendedStatus     String?  @map("recommended_status")
+  assessedStatus        String   @map("assessed_status")
+  /// One of the six final statuses (never NOT_YET_MEASURED / IMPROVING / ON_TARGET).
+  finalStatus           String   @map("final_status")
+  /// Required when finalStatus differs from the system recommendation (or no recommendation existed).
+  overrideReason        String?  @map("override_reason")
+  approvedBy            String   @map("approved_by")
+  approvedByRole        String   @map("approved_by_role")
+  approvedAt            DateTime @map("approved_at")
+  note                  String?
+  learningNotApplicableReason String? @map("learning_not_applicable_reason")
+
+  @@unique([closeoutId, closeoutVersion])
+  @@map("iam_core_closeout_approvals")
+}
+
+/// Append-only closeout timeline (started, owner observation, measurement, approval, learning, completion).
+model IamCoreCloseoutHistory {
+  historyId             String   @id @default(uuid()) @map("history_id")
+  closeoutId            String   @map("closeout_id")
+  closeout              IamCoreCloseout @relation(fields: [closeoutId], references: [closeoutId], onDelete: Restrict)
+  candidateId           String   @map("candidate_id")
+  dposCompanyId         String   @map("dpos_company_id")
+  operation             String
+  fromStatus            String?  @map("from_status")
+  toStatus              String?  @map("to_status")
+  closeoutVersion       Int?     @map("closeout_version")
+  actorId               String   @map("actor_id")
+  actorRole             String   @map("actor_role")
+  reason                String?
+  detailJson            String?  @map("detail_json")
+  at                    DateTime
+
+  @@index([closeoutId, at])
+  @@index([candidateId, at])
+  @@map("iam_core_closeout_history")
+}
+
+/// A descriptive learning record: EVIDENCE ONLY. Nothing here changes scoring weights, Health curves, RSE policy or recommendations.
+model IamCoreLearningRecord {
+  learningId            String   @id @default(uuid()) @map("learning_id")
+  closeoutId            String   @map("closeout_id")
+  closeout              IamCoreCloseout @relation(fields: [closeoutId], references: [closeoutId], onDelete: Restrict)
+  closeoutVersion       Int      @map("closeout_version")
+  candidateId           String   @map("candidate_id")
+  dposCompanyId         String   @map("dpos_company_id")
+  groupedConditionKey   String   @map("grouped_condition_key")
+  actionType            String?  @map("action_type")
+  department            String?
+  ownerRole             String?  @map("owner_role")
+  /// Candidate-specific condition DETAIL (free text). Never an analytical grouping key.
+  conditionType         String?  @map("condition_type")
+  /// Governed condition family code (stable) and the vocabulary version it was written under. The analytical grouping key.
+  conditionFamily       String?  @map("condition_family")
+  conditionFamilyVersion String? @map("condition_family_version")
+  /// PRODUCER, MANAGEMENT or DEFAULT_UNCLASSIFIED
+  conditionFamilySource String?  @map("condition_family_source")
+  category              String?
+  recommendationText    String?  @map("recommendation_text")
+  planSummary           String?  @map("plan_summary")
+  /// FOLLOWED, MODIFIED, SELECTED_ALTERNATIVE, REJECTED_THEN_APPROVED, DELAYED, SUPPRESSED_THEN_APPROVED
+  managementResponse    String   @map("management_response")
+  deviationReason       String?  @map("deviation_reason")
+  managementPathJson    String?  @map("management_path_json")
+  executionResultJson   String   @map("execution_result_json")
+  conditionResultJson   String   @map("condition_result_json")
+  assessedStatus        String   @map("assessed_status")
+  attributionCategory   String   @map("attribution_category")
+  outcomeConfidence     String   @map("outcome_confidence")
+  expectedVsActualJson  String?  @map("expected_vs_actual_json")
+  timeToResultDays      Float?   @map("time_to_result_days")
+  recurrenceSequence    Int      @default(1) @map("recurrence_sequence")
+  recurrenceJson        String?  @map("recurrence_json")
+  whatWorked            String?  @map("what_worked")
+  whatDidNotWork        String?  @map("what_did_not_work")
+  barriersJson          String?  @map("barriers_json")
+  assumptionsJson       String?  @map("assumptions_json")
+  dependenciesJson      String?  @map("dependencies_json")
+  futureHandling        String?  @map("future_handling")
+  dataLimitationsJson   String?  @map("data_limitations_json")
+  evidenceRefsJson      String?  @map("evidence_refs_json")
+  recordedBy            String   @map("recorded_by")
+  recordedByRole        String   @map("recorded_by_role")
+  recordedAt            DateTime @map("recorded_at")
+
+  @@unique([closeoutId, closeoutVersion])
+  @@index([dposCompanyId, recordedAt])
+  @@map("iam_core_learning_records")
+}
+
+/// The immutable governed condition-family classification of a candidate (one per candidate; code + vocabulary version).
+model IamCoreConditionClassification {
+  candidateId       String   @id @map("candidate_id")
+  dposCompanyId     String   @map("dpos_company_id")
+  familyCode        String   @map("family_code")
+  vocabularyVersion String   @map("vocabulary_version")
+  /// PRODUCER or MANAGEMENT
+  source            String
+  classifiedBy      String   @map("classified_by")
+  classifiedAt      DateTime @map("classified_at")
+  detailJson        String?  @map("detail_json")
+
+  @@index([dposCompanyId, familyCode])
+  @@map("iam_core_condition_classifications")
+}
+
+/// Recurrence metadata: a returning condition is a NEW candidate linked to the prior CLOSED one (never a reopen). Append-only; a
+/// review of an uncertain match is a later row that supersedes the REQUIRES_REVIEW row.
+model IamCoreRecurrenceLink {
+  recurrenceId          String   @id @default(uuid()) @map("recurrence_id")
+  dposCompanyId         String   @map("dpos_company_id")
+  candidateId           String   @map("candidate_id")
+  candidate             IamCoreCandidate @relation("RecurrenceNewCandidate", fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  priorCandidateId      String   @map("prior_candidate_id")
+  priorCandidate        IamCoreCandidate @relation("RecurrencePriorCandidate", fields: [priorCandidateId], references: [candidateId], onDelete: Restrict)
+  groupedConditionKey   String   @map("grouped_condition_key")
+  /// Position in the chain (the original condition is 1, its first recurrence 2) and the recurrence count (first recurrence 1).
+  recurrenceSequence    Int      @map("recurrence_sequence")
+  recurrenceCount       Int      @map("recurrence_count")
+  /// LINKED (exact grouped-condition match), REQUIRES_REVIEW (uncertain), REVIEW_CONFIRMED, REVIEW_DECLINED
+  matchStatus           String   @map("match_status")
+  /// EXACT_GROUPED_KEY, FACET_OVERLAP, EVIDENCE_OVERLAP
+  matchBasis            String   @map("match_basis")
+  matchDetailJson       String?  @map("match_detail_json")
+  priorResolutionStatus String?  @map("prior_resolution_status")
+  priorCloseoutAt       DateTime? @map("prior_closeout_at")
+  priorPlanSummary      String?  @map("prior_plan_summary")
+  priorActionSummary    String?  @map("prior_action_summary")
+  supersedesRecurrenceId String? @map("supersedes_recurrence_id")
+  decidedBy             String?  @map("decided_by")
+  decidedByRole         String?  @map("decided_by_role")
+  decisionReason        String?  @map("decision_reason")
+  createdAt             DateTime @map("created_at")
+
+  @@index([dposCompanyId, matchStatus])
+  @@index([candidateId])
+  @@index([priorCandidateId])
+  @@map("iam_core_recurrence_links")
 }

@@ -28,6 +28,8 @@ import { deriveGroupedConditionKey, groupEvidence, validateEvidenceItem, type Ev
 import { assertActor, requireSystemOrManagement, type WorkflowActor } from "./permissions";
 import { WORKFLOW_POLICY, WORKFLOW_SOURCE_VERSION, type EvidenceKind } from "./vocab";
 import { endSuppressionTx, type SuppressionEndTrigger } from "./management";
+import { recordRecurrenceOnCreate } from "../closeout/recurrence";
+import { classifyCandidate, requireConditionFamily } from "../closeout/family";
 
 /** Everything the caller (a later detection/recommendation stage) supplies about one grouped condition. */
 export interface GroupDescription {
@@ -35,6 +37,8 @@ export interface GroupDescription {
   summary?: string;
   category?: string;
   candidateType?: string;
+  /** Governed condition-family code (Stage 4E-C4) supplied by the producer of the candidate; free text is refused. Optional. */
+  conditionFamily?: string;
   /** The ORIGINAL system recommendation direction. Stored append-only; never rewritten by management. */
   recommendedActionDirection: string;
   /**
@@ -74,11 +78,14 @@ export interface IngestGroupResult {
   evidenceAlreadyPresent: number;
   suppressionEnded: SuppressionEndTrigger | null;
   events: EmittedEvent[];
+  /** Stage 4E: an uncertain recurrence match (never auto-linked) awaits management review; these are the REQUIRES_REVIEW rows. */
+  recurrenceReviewLinkIds?: string[];
 }
 
 function validateDescription(d: GroupDescription, key: string) {
   requireText(d.title, "title", 500);
   requireText(d.recommendedActionDirection, "recommendedActionDirection", 4000);
+  if (d.conditionFamily !== undefined && d.conditionFamily !== null) requireConditionFamily(d.conditionFamily);
   const forbidden = ["domainScore", "domainRank"].filter((k) => (d as unknown as Record<string, unknown>)[k] !== undefined);
   if (forbidden.length > 0) {
     throw new DposError("SCORE_AND_RANK_NOT_SUPPORTED", `Group ${key}: ${forbidden.join(" and ")} cannot be supplied in Stage 4B; scoring and ranking are a later stage and no placeholder is stored.`, 400, { groupedConditionKey: key });
@@ -157,7 +164,7 @@ interface CreateTxInput {
   at: Date;
 }
 
-async function createCandidateTx(tx: Tx, ctx: Ctx, input: CreateTxInput): Promise<{ candidateId: string; recurrenceOf: string | null; attached: number; events: EmittedEvent[] }> {
+async function createCandidateTx(tx: Tx, ctx: Ctx, input: CreateTxInput): Promise<{ candidateId: string; recurrenceOf: string | null; attached: number; events: EmittedEvent[]; reviewLinkIds: string[] }> {
   const { group, description, actor, at } = input;
   const refs = group.items.map((i) => i.evidenceRef);
   const priorRejections = await countQualifiedRejections(tx, ctx, group.groupedConditionKey);
@@ -176,6 +183,9 @@ async function createCandidateTx(tx: Tx, ctx: Ctx, input: CreateTxInput): Promis
       originalCreatedAt: at,
     },
   });
+  if (description.conditionFamily) {
+    await classifyCandidate(tx, ctx, { candidateId: candidate.candidateId, familyCode: description.conditionFamily, source: "PRODUCER", classifiedBy: actor.actorId, at });
+  }
   await tx.iamCoreWorkflowState.create({
     data: {
       candidateId: candidate.candidateId,
@@ -241,12 +251,19 @@ async function createCandidateTx(tx: Tx, ctx: Ctx, input: CreateTxInput): Promis
     },
     candidate.candidateId,
   );
-  if (input.recurrenceOfCandidateId) {
-    await em.emit(
-      "RECURRENCE_LINKED",
-      { recurrence: { priorCandidateId: input.recurrenceOfCandidateId, recurrenceReason: input.recurrenceReason ?? "The condition returned after the earlier candidate was closed." } },
-      candidate.candidateId,
-    );
+  // Stage 4E: an exact grouped-condition match links automatically (and records the chain position and the prior closeout context);
+  // a weaker match is recorded for management review and links nothing.
+  const recurrence = await recordRecurrenceOnCreate(tx, ctx, {
+    candidateId: candidate.candidateId,
+    groupedConditionKey: group.groupedConditionKey,
+    conditionKey: group.facets.conditionKey,
+    evidenceRefs: refs,
+    exactPriorCandidateId: input.recurrenceOfCandidateId,
+    reason: input.recurrenceReason,
+    at,
+  });
+  if (input.recurrenceOfCandidateId && recurrence.eventFields) {
+    await em.emit("RECURRENCE_LINKED", { recurrence: recurrence.eventFields }, candidate.candidateId);
   }
   await writeAudit(tx, {
     category: "WORKFLOW",
@@ -259,7 +276,7 @@ async function createCandidateTx(tx: Tx, ctx: Ctx, input: CreateTxInput): Promis
     detail: { groupedConditionKey: group.groupedConditionKey, evidence: refs.length, recurrenceOf: input.recurrenceOfCandidateId },
     at,
   });
-  return { candidateId: candidate.candidateId, recurrenceOf: input.recurrenceOfCandidateId, attached, events: em.results };
+  return { candidateId: candidate.candidateId, recurrenceOf: input.recurrenceOfCandidateId, attached, events: em.results, reviewLinkIds: recurrence.reviewLinkIds };
 }
 
 function mapUnique(e: unknown): never {
@@ -330,7 +347,7 @@ export async function ingestGovernedEvidence(db: PrismaClient, ctx: Ctx, actor: 
             actor,
             at,
           });
-          results.push({ groupedConditionKey: group.groupedConditionKey, action: "CREATED", candidateId: created.candidateId, recurrenceOfCandidateId: created.recurrenceOf, evidenceAttached: created.attached, evidenceAlreadyPresent: 0, suppressionEnded: null, events: created.events });
+          results.push({ groupedConditionKey: group.groupedConditionKey, action: "CREATED", candidateId: created.candidateId, recurrenceOfCandidateId: created.recurrenceOf, evidenceAttached: created.attached, evidenceAlreadyPresent: 0, suppressionEnded: null, events: created.events, ...(created.reviewLinkIds.length ? { recurrenceReviewLinkIds: created.reviewLinkIds } : {}) });
         }
         return { groups: results };
       },

@@ -323,7 +323,7 @@ export async function runOperation<T extends object>(
   ctx: Ctx,
   actor: WorkflowActor,
   candidateId: string,
-  meta: { operation: string; at?: Date; allowClosed?: boolean },
+  meta: { operation: string; at?: Date; allowClosed?: boolean; origin?: EmitterOrigin },
   fn: (env: OperationEnv) => Promise<T>,
 ): Promise<OperationResult<T>> {
   assertActor(actor);
@@ -332,7 +332,7 @@ export async function runOperation<T extends object>(
       const { candidate, wf } = await loadWorkflowCandidate(tx, ctx, candidateId);
       if (!meta.allowClosed) assertOpenCandidate(candidate);
       const at = meta.at ?? new Date();
-      const em = await Emitter.open(tx, ctx, candidateId, actor, at);
+      const em = await Emitter.open(tx, ctx, candidateId, actor, at, meta.origin);
       const env: OperationEnv = { tx, ctx, actor, candidate, wf, em, at };
       const out = await fn(env);
       await syncDecisionRequiredState(env, candidateId);

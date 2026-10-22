@@ -43,8 +43,13 @@ const skip = !dposRoot || !hubRoot || !fs.existsSync(path.join(hubRoot, "src", "
   ? "DPOS repository (with installed dependencies) not found - set DPOS_REPO_ROOT"
   : false;
 
-// Real-time anchored (Data Hub validates producer times), all strictly in the past.
-const BASE = Date.now() - 30 * DAY;
+// DETERMINISTIC TIME ANCHOR (Stage 4E closeout 4E-C2). The Data Hub requires producer times strictly in the past, but a relative anchor
+// ("now - 30 days") made the result depend on the day the suite ran: the persistence modifier counts consecutive OPERATING WEEKS in the
+// company's local time zone, so two scoring runs 24 hours apart could straddle a week boundary and score 75 instead of 74. The anchor is
+// therefore a FIXED instant: Sunday 2026-08-02 12:00 in America/Chicago (CDT, UTC-5 = 17:00Z), the first moment of the middle of an
+// operating week (weeks start Sunday). Day offsets 0-6 are week 1, 7-13 week 2, 14-20 week 3, and so on, whatever the real date is.
+// The company time zone of the test fixture is America/Chicago. Production persistence logic is unchanged.
+const BASE = Date.parse("2026-08-02T17:00:00.000Z");
 const t = (days: number, hours = 0) => new Date(BASE + days * DAY + hours * 3_600_000);
 const d = (days: number) => t(days).toISOString().slice(0, 10);
 describe("live Data Hub: Stage 4C scoring and priority events (real DPOS application over HTTP)", { skip }, () => {

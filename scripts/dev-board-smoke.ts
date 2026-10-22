@@ -28,7 +28,7 @@ import { sqliteUrl } from "../src/lib/dpos/migrate/governed-migrate";
 import { calculateHealth, createDataHubBackorderProvider, createDataHubRseHealthProvider, ingestRseHealthInputs, recordHealthEvidence } from "../src/lib/dpos/health";
 import { DataHubClient } from "../src/lib/dpos/data-hub-client";
 import { recordScoringInputs, runScoring } from "../src/lib/dpos/scoring";
-import { SYSTEM_ACTOR, acceptOwnership, approveCandidate, completeAction, ingestGovernedEvidence, presentCandidate, requestPause, startAction, updateConditionReduction, updateProgress } from "../src/lib/dpos/workflow";
+import { SYSTEM_ACTOR, acceptOwnership, approveCandidate, archiveToHistory, completeAction, ingestGovernedEvidence, presentCandidate, requestPause, startAction, updateConditionReduction, updateProgress, validateCompletion } from "../src/lib/dpos/workflow";
 import { PrismaClient } from "@prisma/client";
 import { DEFAULT_COMPANY_ID, createTestDb, findDposRoot, loadDposFixtures, makeConfig, writeAttainableRegistry } from "../tests/dpos/helpers";
 import { MANAGER, describeGroup, evidence } from "../tests/dpos/workflow-helpers";
@@ -206,6 +206,35 @@ async function main() {
   await updateProgress(db, ctx, { actorId: "owner-1", role: "OPERATOR" }, E, { actionCompletionPct: 100, at: d(-4) });
   await completeAction(db, ctx, { actorId: "owner-1", role: "OPERATOR" }, E, { at: d(-3) });
 
+  // Stage 4E: four Completed History candidates (execution complete, validated, archived) awaiting FORMAL closeout, so every 4E smoke path
+  // (happy close, Not Yet Measured, Unsuccessful with a negative reduction, insufficient attribution) has its own candidate.
+  const OWN = { actorId: "owner-1", role: "OPERATOR" as const, displayName: "Olivia Owner" };
+  const hist = async (key: string, title: string, baseline: number, current: number) => {
+    const id = await mk(key, title, d(-16), "Cancel or defer open purchase orders for the affected items.");
+    await approveCandidate(db, ctx, MANAGER, id, {
+      plan: { summary: `Cancel the oldest open POs for ${title}.`, detail: planDetail("Cut excess open PO value", "Cancel the oldest open POs") },
+      assignment: { responsibleDepartment: "Purchasing", taskOwnerId: "owner-1", taskOwnerName: "Olivia Owner" },
+      targetStart: dateOnly(-14),
+      targetResolution: dateOnly(-9),
+      baselineExposure: baseline,
+      exposureUnit: "USD",
+      at: d(-15),
+    });
+    await acceptOwnership(db, ctx, OWN, id, { at: d(-15) });
+    await startAction(db, ctx, OWN, id, { at: d(-14) });
+    await updateConditionReduction(db, ctx, OWN, id, { baselineExposure: baseline, currentExposure: current, exposureUnit: "USD", at: d(-11) });
+    await updateProgress(db, ctx, OWN, id, { actionCompletionPct: 100, at: d(-10) });
+    await completeAction(db, ctx, OWN, id, { note: "All affected purchase orders were actioned.", at: d(-10) });
+    await validateCompletion(db, ctx, MANAGER, id, { finalResolutionStatus: "SUBSTANTIALLY_RESOLVED", at: d(-9) });
+    await archiveToHistory(db, ctx, MANAGER, id, { at: d(-8) });
+    return id;
+  };
+  const F = await hist("F", "Excess open purchase orders - Vendor F", 1000, 100);
+  const G = await hist("G", "Excess open purchase orders - Vendor G", 2000, 1500);
+  const HC = await hist("H", "Excess open purchase orders - Vendor H", 1000, 900);
+  const I = await hist("I", "Excess open purchase orders - Vendor I", 3000, 600);
+  const titles: Record<string, string> = { F: "Excess open purchase orders - Vendor F", H: "Excess open purchase orders - Vendor H" };
+
   // Scoring run (explicit; the board never runs it) and Health calculations (prior week, then now), with governed evidence.
   await runScoring(db, ctx, SYSTEM_ACTOR, { at: t(-2), runKey: "smoke-weekly" });
   // Stage 4D-R: Position & Balance, Efficiency and Slow / Nonmoving come through the REAL governed path:
@@ -320,6 +349,22 @@ async function main() {
   const USERS: Record<string, { id: string; roles: string }> = { manager: { id: "mgr-1", roles: "MANAGER" }, owner: { id: "owner-1", roles: "OPERATOR" }, viewer: { id: "viewer-1", roles: "VIEW_ONLY" } };
   const proxy = http.createServer((req, res) => {
     const url = req.url ?? "/";
+    // TEST-ONLY: simulate the SAME grouped condition returning after its candidate was permanently closed (Stage 4E recurrence smoke).
+    const sim = /^\/__sim\/recur\/([FH])$/.exec(url);
+    if (sim) {
+      const key = sim[1]!;
+      const title = titles[key]!;
+      void ingestGovernedEvidence(db, ctx, MANAGER, {
+        evidence: [evidence(`${key}-r1`, { conditionKey: title }), evidence(`${key}-r2`, { conditionKey: title }), evidence(`${key}-r3`, { conditionKey: title })],
+        sourceRunId: `smoke-run-${key}-recurrence-${Date.now()}`,
+        describe: describeGroup({ title, recommendedActionDirection: "Cancel or defer open purchase orders for the affected items." }),
+        at: new Date(),
+      }).then(
+        (r) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(r.groups)); },
+        (e) => { res.writeHead(500, { "content-type": "text/plain" }); res.end(String(e?.message ?? e)); },
+      );
+      return;
+    }
     const m = /^\/__as\/(manager|owner|viewer)/.exec(url);
     if (m) {
       res.writeHead(302, { "set-cookie": `smoke_user=${m[1]}; Path=/`, location: "/board" });
@@ -338,9 +383,9 @@ async function main() {
   });
   await new Promise<void>((r) => proxy.listen(PROXY_PORT, "127.0.0.1", r));
   cleanups.push(() => new Promise<void>((r) => proxy.close(() => r())));
-  fs.writeFileSync(path.join(os.tmpdir(), "iam-4d-smoke.json"), JSON.stringify({ proxy: `http://127.0.0.1:${PROXY_PORT}`, next: `http://127.0.0.1:${NEXT_PORT}`, dataHub: hubBase, candidates: { A, B, C, D, E }, iamDb: iam.file }, null, 2));
+  fs.writeFileSync(path.join(os.tmpdir(), "iam-4d-smoke.json"), JSON.stringify({ proxy: `http://127.0.0.1:${PROXY_PORT}`, next: `http://127.0.0.1:${NEXT_PORT}`, dataHub: hubBase, candidates: { A, B, C, D, E, F, G, H: HC, I }, iamDb: iam.file }, null, 2));
   console.log(`SMOKE READY proxy=http://127.0.0.1:${PROXY_PORT} next=${NEXT_PORT} dataHub=${hubBase}`);
-  console.log(`SMOKE CANDIDATES A=${A} B=${B} C=${C} D=${D} E=${E}`);
+  console.log(`SMOKE CANDIDATES A=${A} B=${B} C=${C} D=${D} E=${E} F=${F} G=${G} H=${HC} I=${I}`);
 }
 
 main().catch((e) => {

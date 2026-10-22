@@ -13,6 +13,7 @@ import { sqliteUrl } from "../../src/lib/dpos/migrate/governed-migrate";
 import { performBoardAction, BOARD_ACTIONS } from "../../src/lib/dpos/board";
 import { createTestDb, DEFAULT_COMPANY_ID, findDposRoot, loadDposFixtures, makeConfig, writeAttainableRegistry, type TestDb } from "./helpers";
 import { MANAGER, OWNER_USER, STRANGER, VIEWER, expectCode, presentedCandidate, startedCandidate, eventTypes, type Fixture } from "./workflow-helpers";
+import { completedHistoryCandidate } from "./closeout-helpers";
 
 const dposRoot = findDposRoot();
 const skip = dposRoot ? false : "DPOS repository not found (set DPOS_REPO_ROOT)";
@@ -48,6 +49,8 @@ describe("board routes and actions", { skip }, () => {
     health: typeof import("../../src/app/api/dpos/health/route");
     plan: typeof import("../../src/app/api/dpos/candidates/[candidateId]/plan/route");
     actions: typeof import("../../src/app/api/dpos/candidates/[candidateId]/actions/route");
+    closeout: typeof import("../../src/app/api/dpos/candidates/[candidateId]/closeout/route");
+    learning: typeof import("../../src/app/api/dpos/learning/route");
   };
   const MGR = () => hdr("mgr-1", "MANAGER");
   const OWN = () => hdr("owner-1", "OPERATOR");
@@ -92,6 +95,8 @@ describe("board routes and actions", { skip }, () => {
       health: await import("../../src/app/api/dpos/health/route"),
       plan: await import("../../src/app/api/dpos/candidates/[candidateId]/plan/route"),
       actions: await import("../../src/app/api/dpos/candidates/[candidateId]/actions/route"),
+      closeout: await import("../../src/app/api/dpos/candidates/[candidateId]/closeout/route"),
+      learning: await import("../../src/app/api/dpos/learning/route"),
     };
   });
   after(async () => {
@@ -182,6 +187,44 @@ describe("board routes and actions", { skip }, () => {
     assert.ok(stranger.status >= 400 && stranger.status < 500);
     const progress = await t.prisma.iamCoreActionTracking.findUnique({ where: { candidateId: id } });
     assert.equal(progress?.actionCompletionPct, 30, "the refused update changed nothing");
+  });
+
+  it("Stage 4E: the closeout and learning read routes are integrated-only and read-only; closeout actions use the workflow's own refusal codes", async () => {
+    for (const k of KEYS) delete process.env[k];
+    const off = await routes.closeout.GET(req("/api/dpos/candidates/x/closeout", { headers: MGR() }), ctxOf("x"));
+    assert.equal(off.status, 503);
+    assert.equal((await routes.learning.GET(req("/api/dpos/learning", { headers: MGR() }), undefined as never)).status, 503);
+    integrated();
+    assert.equal((await routes.closeout.GET(req("/api/dpos/candidates/x/closeout"), ctxOf("x"))).status, 401);
+    const id = await completedHistoryCandidate(fx, { key: "route-closeout" });
+    const counts = async () => ({ c: await t.prisma.iamCoreCloseout.count(), l: await t.prisma.iamCoreScoringRun.count(), h: await t.prisma.iamCoreHealthScore.count() });
+    const before = await counts();
+    const view = await routes.closeout.GET(req(`/api/dpos/candidates/${id}/closeout`, { headers: OWN() }), ctxOf(id));
+    assert.equal(view.status, 200, await view.clone().text());
+    const vj = (await view.json()) as { candidateId: string; permissions: { canStart: boolean; canApprove: boolean } };
+    assert.equal(vj.candidateId, id);
+    assert.equal(vj.permissions.canStart, false);
+    assert.equal(vj.permissions.canApprove, false);
+    const mgrView = await routes.closeout.GET(req(`/api/dpos/candidates/${id}/closeout`, { headers: MGR() }), ctxOf(id));
+    assert.equal(((await mgrView.json()) as { permissions: { canStart: boolean } }).permissions.canStart, true);
+    assert.equal((await routes.closeout.GET(req("/api/dpos/candidates/nope/closeout", { headers: OWN() }), ctxOf("nope"))).status, 404);
+    const learn = await routes.learning.GET(req("/api/dpos/learning", { headers: OWN() }), undefined as never);
+    assert.equal(learn.status, 200, await learn.clone().text());
+    const lj = (await learn.json()) as { closedCandidates: number; statement: string };
+    assert.equal(lj.closedCandidates, 0);
+    assert.ok(lj.statement.length > 0);
+    assert.deepEqual(await counts(), before, "reading closeout and learning writes nothing and never scores");
+    // actions: the owner cannot start closeout or approve; a manager's start is accepted; a bad body is a 400.
+    const owner = await routes.actions.POST(post(`/api/dpos/candidates/${id}/actions`, OWN(), { action: "startCloseout" }), ctxOf(id));
+    assert.equal(owner.status, 403);
+    assert.equal(((await owner.json()) as { error: { code: string } }).error.code, "MANAGEMENT_AUTHORIZATION_REQUIRED");
+    const started = await routes.actions.POST(post(`/api/dpos/candidates/${id}/actions`, MGR(), { action: "startCloseout" }), ctxOf(id));
+    assert.equal(started.status, 200, await started.clone().text());
+    assert.ok((await eventTypes(t.prisma, id)).includes("CLOSEOUT_STARTED"));
+    const bad = await routes.actions.POST(post(`/api/dpos/candidates/${id}/actions`, MGR(), { action: "recordMeasurement", residualValue: "5" }), ctxOf(id));
+    assert.equal(bad.status, 400);
+    const noStatus = await routes.actions.POST(post(`/api/dpos/candidates/${id}/actions`, MGR(), { action: "approveCloseout" }), ctxOf(id));
+    assert.equal(noStatus.status, 400);
   });
 
   it("actions: an unknown action and a missing body are rejected; the dispatcher covers every board button", async () => {

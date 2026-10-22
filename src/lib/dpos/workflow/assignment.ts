@@ -137,10 +137,26 @@ export async function reassign(db: PrismaClient, ctx: Ctx, actor: WorkflowActor,
       throw new DposError("NOTHING_TO_ASSIGN", "Name the new department, the new task owner, contributors or a plan change.", 400);
     }
     const planBefore = await tx.iamCoreManagementPlan.findFirst({ where: { candidateId, approvalState: "APPROVED" }, orderBy: { planVersion: "desc" } });
+    // Stage 4E (plan-revision coverage): a change of the RESPONSIBLE DEPARTMENT is a material plan change even when no new plan text is
+    // supplied. It carries the approved plan forward as a NEW version (the old version is superseded, never edited), records the actor and
+    // reason, and emits PLAN_REVISED like every other material plan revision. A change of task owner or contributors alone is an
+    // assignment change (recorded in the assignment ledger) and is not a plan revision.
+    const departmentWillChange = !!input.toDepartment && input.toDepartment.trim() !== prev.responsibleDepartment;
+    let planChange: PlanInput | undefined = input.planChange;
+    if (!planChange && departmentWillChange && planBefore) {
+      const before = JSON.parse(planBefore.planJson ?? "{}") as { actionDirection?: string | null; detail?: unknown };
+      planChange = {
+        summary: planBefore.planSummary ?? "Approved plan (carried forward)",
+        ...(before.actionDirection ? { actionDirection: before.actionDirection } : {}),
+        ...(before.detail !== undefined && before.detail !== null ? { detail: before.detail } : {}),
+        deviatesFromRecommendation: planBefore.deviatesFromRecommendation,
+        ...(planBefore.deviationReason ? { deviationReason: planBefore.deviationReason } : {}),
+      };
+    }
     let planAfterVersion: number | null = planBefore?.planVersion ?? null;
     let planId: string | null = planBefore?.planId ?? null;
-    if (input.planChange) {
-      const created = await createApprovedPlan(env, candidateId, input.planChange);
+    if (planChange) {
+      const created = await createApprovedPlan(env, candidateId, planChange);
       planAfterVersion = created.plan.planVersion;
       planId = created.plan.planId;
     }
@@ -168,7 +184,7 @@ export async function reassign(db: PrismaClient, ctx: Ctx, actor: WorkflowActor,
       await resolveDecisionFlags(tx, candidateId, ["OWNER_DISCUSSION"], actor.actorId, "The task owner was reassigned.", at);
     }
     const decision = await recordDecision(tx, ctx, candidateId, {
-      decisionType: input.planChange ? "PLAN_REVISED" : "REASSIGN",
+      decisionType: planChange ? "PLAN_REVISED" : "REASSIGN",
       reason,
       at,
       actor,
@@ -177,7 +193,7 @@ export async function reassign(db: PrismaClient, ctx: Ctx, actor: WorkflowActor,
       planVersion: planAfterVersion,
       detail: { departmentChanged, ownerChanged, from: { department: prev.responsibleDepartment, ownerId: prev.taskOwnerId }, targetDate: isoDate(tracking?.targetResolution ?? null) },
     });
-    if (input.planChange) {
+    if (planChange) {
       // Dedicated governance event (4C-D6): a plan revision is never buried in a generic status or assignment change.
       await env.em.emit(
         "PLAN_REVISED",
@@ -195,7 +211,7 @@ export async function reassign(db: PrismaClient, ctx: Ctx, actor: WorkflowActor,
         planId ?? decision.decisionId,
       );
     }
-    return { decisionId: decision.decisionId, departmentChanged, ownerChanged, planVersion: planAfterVersion, planRevised: !!input.planChange };
+    return { decisionId: decision.decisionId, departmentChanged, ownerChanged, planVersion: planAfterVersion, planRevised: !!planChange };
   });
 }
 

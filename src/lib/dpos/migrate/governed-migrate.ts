@@ -27,6 +27,7 @@ export const STAGE_4A_MIGRATION = "20261021100000_stage4a_core_integration_found
 export const STAGE_4B_MIGRATION = "20261021140000_stage4b_workflow";
 export const STAGE_4C_MIGRATION = "20261021200000_stage4c_scoring";
 export const STAGE_4D_MIGRATION = "20261022100000_stage4d_health_board";
+export const STAGE_4E_MIGRATION = "20261023100000_stage4e_closeout_learning";
 
 export interface GovernedMigrateOptions {
   /** Absolute path of the SQLite file (created when absent). */
@@ -465,9 +466,23 @@ export async function governedRollbackStage4C(opts: RollbackOptions): Promise<Ro
   return rollbackStage(opts, STAGE_4C_MIGRATION, "4c", () => true);
 }
 
-/** Stage 4D (health score, health evidence and board review) tables only. Everything earlier is untouched. */
+/** Stage 4D (health score, health evidence and board review) tables only. Everything earlier is untouched. Refused while 4E is applied. */
 export async function governedRollbackStage4D(opts: RollbackOptions): Promise<RollbackResult> {
+  const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
+  if (applied?.includes(STAGE_4E_MIGRATION)) {
+    return { ok: false, reason: "Stage 4E is applied; roll Stage 4E back first (rollback-4e), then Stage 4D." };
+  }
   return rollbackStage(opts, STAGE_4D_MIGRATION, "4d", () => true);
+}
+
+/** Tables created by the Stage 4E migration (derived from its SQL; never hard-coded). */
+export function stage4eTableNames(repoRoot: string): string[] {
+  return migrationTableNames(repoRoot, STAGE_4E_MIGRATION);
+}
+
+/** Stage 4E (closeout, learning and recurrence) tables only. Everything earlier is untouched. */
+export async function governedRollbackStage4E(opts: RollbackOptions): Promise<RollbackResult> {
+  return rollbackStage(opts, STAGE_4E_MIGRATION, "4e", () => true);
 }
 
 async function rollbackStage(opts: RollbackOptions, migration: string, label: string, countTable: (table: string) => boolean): Promise<RollbackResult> {

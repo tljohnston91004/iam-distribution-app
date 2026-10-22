@@ -39,7 +39,18 @@ export const IAM_PROVENANCE_CONTRACT_FAMILY = "IAM_RESULTS_RETURN" as const;
  *     additionalEmergencyReviewRequired + emergencyTriggers, rankLockActive.
  * IAM owns domainScore / domainRank. A consumer (DPOS) may add a separate enterprise rank but never overwrite these.
  */
-export const IAM_RESULTS_RETURN_CONTRACT_REVISION = "1.0-r4c" as const;
+/**
+ * Revision 1.0-r4e (Stage 4E formal closeout, outcome attribution, recurrence and learning; additive on top of 1.0-r4c, every earlier event stays valid):
+ *   - existing closure events are reused where they already mean the same thing: OUTCOME_VALIDATED carries a measured outcome / closeout
+ *     version (the "outcome measured" step), CLOSEOUT_COMPLETED is the permanent closure, RECURRENCE_LINKED is the new linked candidate;
+ *   - new events: CLOSEOUT_STARTED, CLOSEOUT_APPROVED (management approval of one closeout version) and LEARNING_RECORDED;
+ *   - the closeout / outcome / recurrence / learning sections gain optional fields (closeout identity and version, system-recommended vs
+ *     management-approved resolution, nine-status resolution vocabulary, attribution category and rationale, outcome confidence,
+ *     measurement window, residual exposure unit, recurrence risk and context). No earlier required field changes.
+ * Execution completion (ACTION_COMPLETED) is still NOT formal closeout; only CLOSEOUT_COMPLETED closes a candidate and a closed
+ * candidate never reopens (a returning condition is a new candidate linked by RECURRENCE_LINKED).
+ */
+export const IAM_RESULTS_RETURN_CONTRACT_REVISION = "1.0-r4e" as const;
 
 /** Contract versions this build can validate and interpret. Additive evolution only: add, never remove. */
 export const IAM_RESULTS_RETURN_SUPPORTED_VERSIONS = ["1.0"] as const;
@@ -81,6 +92,9 @@ export const IAM_EVENT_TYPES = [
   "ACTION_COMPLETED",
   // Closure and recurrence
   "OUTCOME_VALIDATED",
+  "CLOSEOUT_STARTED",
+  "CLOSEOUT_APPROVED",
+  "LEARNING_RECORDED",
   "CLOSEOUT_COMPLETED",
   "RECURRENCE_LINKED",
 ] as const;
@@ -126,6 +140,31 @@ export const IAM_FINAL_RESOLUTION_STATES = [
   "NO_LONGER_APPLICABLE",
 ] as const;
 export const IAM_OUTCOME_STATES = ["MEASURED", "VALIDATED", "NOT_MEASURABLE"] as const;
+/** Stage 4E: the nine closeout resolution statuses (the six final statuses plus the three interim ones). Only the six final ones can close a candidate. */
+export const IAM_CLOSEOUT_RESOLUTION_STATUSES = [
+  "NOT_YET_MEASURED",
+  "IMPROVING",
+  "ON_TARGET",
+  "FULLY_RESOLVED",
+  "SUBSTANTIALLY_RESOLVED",
+  "PARTIALLY_RESOLVED",
+  "CONTROLLED_BUT_CONTINUING",
+  "UNSUCCESSFUL",
+  "NO_LONGER_APPLICABLE",
+] as const;
+/** Stage 4E attribution: how far an action can be credited with the outcome. Always separate from the outcome itself. */
+export const IAM_ATTRIBUTION_CATEGORIES = [
+  "CONFIRMED_CONTRIBUTION",
+  "PROBABLE_CONTRIBUTION",
+  "POSSIBLE_CONTRIBUTION",
+  "UNCLEAR_INSUFFICIENT_EVIDENCE",
+  "UNRELATED_EXTERNAL_CAUSE",
+  "NEGATIVE_COUNTERPRODUCTIVE_EFFECT",
+] as const;
+export const IAM_CLOSEOUT_PHASES = ["STARTED", "MEASURED", "APPROVED", "COMPLETED"] as const;
+export const IAM_RECURRENCE_RISKS = ["LOW", "MEDIUM", "HIGH", "UNKNOWN"] as const;
+export const IAM_RECURRENCE_MATCH_STATUSES = ["LINKED", "REQUIRES_REVIEW", "REVIEW_CONFIRMED", "REVIEW_DECLINED"] as const;
+export const IAM_MANAGEMENT_RESPONSES = ["FOLLOWED", "MODIFIED", "SELECTED_ALTERNATIVE", "REJECTED_THEN_APPROVED", "DELAYED", "SUPPRESSED_THEN_APPROVED"] as const;
 /** IAM Functional Specification section 15: High, Moderate, Low or Not Measurable. */
 export const IAM_ATTRIBUTION_CONFIDENCES = ["HIGH", "MODERATE", "LOW", "NOT_MEASURABLE"] as const;
 /** Analysis data confidence of a scored candidate (IAM scoring model). INSUFFICIENT is normally not rankable. */
@@ -362,8 +401,48 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     lessonsLearnedRef: S,
     influenceFutureRecommendations: B,
     closeoutAt: DT,
+    // ---- Stage 4E (r4e), all optional: versioned closeout, system vs management resolution, attribution, confidence, window.
+    closeoutId: S,
+    closeoutVersion: PI,
+    closeoutPhase: E(IAM_CLOSEOUT_PHASES),
+    /** The system's definitional guidance (absent when management judgement is required). Never replaces the approved status. */
+    recommendedResolutionStatus: E(IAM_CLOSEOUT_RESOLUTION_STATUSES),
+    /** The resolution status assessed on a measured version (the nine-status vocabulary; finalResolutionStatus stays the six final ones). */
+    assessedResolutionStatus: E(IAM_CLOSEOUT_RESOLUTION_STATUSES),
+    managementOverrideReason: LS,
+    approvedBy: S,
+    approvedAt: DT,
+    approvedVersion: PI,
+    outcomeConfidence: E(IAM_DATA_CONFIDENCE_LEVELS),
+    attributionCategory: E(IAM_ATTRIBUTION_CATEGORIES),
+    attributionRationale: LS,
+    conditionReductionState: E(IAM_CONDITION_REDUCTION_STATES),
+    baselineExposure: NN,
+    finalExposure: NN,
+    residualExposureUnit: S,
+    measurementPeriodStart: D,
+    measurementPeriodEnd: D,
+    evidenceCurrentThrough: DT,
+    nextMeasurementDate: D,
+    notYetMeasuredReason: LS,
+    recurrenceRisk: E(IAM_RECURRENCE_RISKS),
+    learningRecordId: S,
+    learningNotApplicableReason: LS,
+    dataLimitations: SA,
+    evidenceRefs: SA,
   },
-  recurrence: { priorCandidateId: S, priorActionRef: S, recurrenceReason: LS },
+  recurrence: {
+    priorCandidateId: S,
+    priorActionRef: S,
+    recurrenceReason: LS,
+    // ---- Stage 4E (r4e), optional
+    recurrenceSequence: PI,
+    recurrenceCount: PI,
+    matchStatus: E(IAM_RECURRENCE_MATCH_STATUSES),
+    priorFinalResolutionStatus: E(IAM_CLOSEOUT_RESOLUTION_STATUSES),
+    priorCloseoutAt: DT,
+    priorPlanSummary: LS,
+  },
   learning: {
     actionType: S,
     normalizedOutcome: S,
@@ -372,6 +451,12 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     contextIdentifiers: SM,
     lineageRefs: SA,
     recurrenceHistoryRefs: SA,
+    // ---- Stage 4E (r4e), optional. A learning record is evidence only; it never changes scoring, Health, RSE policy or recommendations.
+    learningRecordId: S,
+    managementResponse: E(IAM_MANAGEMENT_RESPONSES),
+    timeToResultDays: NN,
+    recurrenceSequence: PI,
+    evidenceOnly: B,
   },
   auditReceipt: { originatingActor: S, originatingSource: S, authorizationProvenance: S },
 };
@@ -600,9 +685,27 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
   },
   OUTCOME_VALIDATED: {
     family: "CLOSURE_RECURRENCE",
-    sections: ["outcome", "learning"],
+    sections: ["outcome", "closeout", "learning"],
     required: ["outcome.outcomeState", "outcome.validatedAt"],
     impliedLifecycleState: "OUTCOME_VALIDATED",
+  },
+  // Stage 4E: formal closeout review opened on an execution-complete candidate. The candidate stays COMPLETED (not closed).
+  CLOSEOUT_STARTED: {
+    family: "CLOSURE_RECURRENCE",
+    sections: ["closeout"],
+    required: ["closeout.closeoutId", "closeout.closeoutVersion", "closeout.closeoutPhase"],
+  },
+  // Stage 4E: management approved one closeout version (system recommendation and approved status are both kept). Not yet closed.
+  CLOSEOUT_APPROVED: {
+    family: "CLOSURE_RECURRENCE",
+    sections: ["closeout", "outcome"],
+    required: ["closeout.closeoutId", "closeout.closeoutVersion", "closeout.finalResolutionStatus", "closeout.approvedBy", "closeout.approvedAt", "closeout.attributionCategory"],
+  },
+  // Stage 4E: a descriptive learning record was captured (evidence only).
+  LEARNING_RECORDED: {
+    family: "CLOSURE_RECURRENCE",
+    sections: ["learning", "closeout"],
+    required: ["learning.learningRecordId", "closeout.closeoutId"],
   },
   CLOSEOUT_COMPLETED: {
     family: "CLOSURE_RECURRENCE",
@@ -1122,6 +1225,18 @@ export function validateIamResultsReturn(body: unknown): IamValidationResult {
           });
         }
       }
+    }
+    if (authorized.closeout.conditionReductionState === "NOT_MEASURABLE" && authorized.closeout.conditionReductionPct !== undefined) {
+      issues.push({
+        path: "closeout.conditionReductionPct",
+        code: "STATE_CONFLICT",
+        message: "A NOT_MEASURABLE closeout condition reduction carries no percentage; never fabricate one",
+      });
+    }
+    const phase = authorized.closeout.closeoutPhase;
+    const phaseByEvent: Partial<Record<IamEventType, string>> = { CLOSEOUT_STARTED: "STARTED", CLOSEOUT_APPROVED: "APPROVED", CLOSEOUT_COMPLETED: "COMPLETED" };
+    if (phase !== undefined && phaseByEvent[eventType] !== undefined && phase !== phaseByEvent[eventType]) {
+      issues.push({ path: "closeout.closeoutPhase", code: "STATE_CONFLICT", message: `${eventType} implies closeoutPhase ${phaseByEvent[eventType]}, not ${String(phase)}` });
     }
     if (eventType === "RECURRENCE_LINKED" && authorized.recurrence.priorCandidateId === authorized.subject.candidateId) {
       issues.push({

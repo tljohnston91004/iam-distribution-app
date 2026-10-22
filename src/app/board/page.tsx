@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MarkReviewed, RecalculateHealth, RefreshFromDataHub } from "@/components/board/client";
+import { ActionForm, MarkReviewed, RecalculateHealth, RefreshFromDataHub } from "@/components/board/client";
 import { Badge, DL, Empty, LinkButton, Pending, Section, day, localDay, money, pct, td, th, when } from "@/components/board/ui";
 import { boardSession, loadBoard } from "@/lib/dpos/board/server";
 
@@ -30,6 +30,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
           </p>
         </div>
         <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <LinkButton href="/board/learning">Learning and effectiveness</LinkButton>
           <LinkButton href="/runs/new">V1.5 weekly review</LinkButton>
         </nav>
       </header>
@@ -316,6 +317,111 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
         )}
       </Section>
 
+      {/* 5b. Completed History and formal closeout (Stage 4E): Execution Complete is NOT Closeout Complete */}
+      <Section id="closeout" title="Completed History and Formal Closeout" subtitle={b.closeout.note}>
+        <h3 style={{ fontSize: 14, margin: "0 0 6px" }}>Execution complete: awaiting closeout</h3>
+        {b.closeout.pending.length === 0 ? (
+          <Empty>No execution-complete action is waiting for formal closeout.</Empty>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }} data-testid="closeout-pending">
+              <thead>
+                <tr>
+                  {["Action", "Department", "Execution completed", "Closeout status", "Interim result", "Next measurement", "Condition reduction", ""].map((c) => (
+                    <th key={c} style={th}>
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {b.closeout.pending.map((r) => (
+                  <tr key={r.candidateId} data-testid="closeout-pending-row">
+                    <td style={td}>{r.title ?? r.candidateId}</td>
+                    <td style={td}>{r.department ?? "Unassigned"}</td>
+                    <td style={td}>{localDay(r.executionCompletedAt, tz)}</td>
+                    <td style={td}>
+                      <Badge tone={r.boardStatus === "CLOSEOUT_NOT_STARTED" ? "neutral" : "warn"}>{r.statusLabel}</Badge>
+                    </td>
+                    <td style={td}>{r.interimLabel ?? "n/a"}</td>
+                    <td style={td}>{r.nextMeasurementDate ? day(r.nextMeasurementDate) : "n/a"}</td>
+                    <td style={td}>{pct(r.conditionReductionPct)}</td>
+                    <td style={td}>
+                      <LinkButton href={r.href}>Open closeout</LinkButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <h3 style={{ fontSize: 14, margin: "14px 0 6px" }}>Closeout complete: permanently closed</h3>
+        {b.closeout.closed.length === 0 ? (
+          <Empty>No candidate has been formally closed yet.</Empty>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }} data-testid="closeout-closed">
+              <thead>
+                <tr>
+                  {["Action", "Department", "Closed", "Closeout status", "Condition reduction", "Attribution", ""].map((c) => (
+                    <th key={c} style={th}>
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {b.closeout.closed.map((r) => (
+                  <tr key={r.candidateId} data-testid="closeout-closed-row">
+                    <td style={td}>{r.title ?? r.candidateId}</td>
+                    <td style={td}>{r.department ?? "Unassigned"}</td>
+                    <td style={td}>{localDay(r.closedAt, tz)}</td>
+                    <td style={td}>
+                      <Badge tone={r.finalStatus === "UNSUCCESSFUL" ? "bad" : r.finalStatus === "FULLY_RESOLVED" || r.finalStatus === "SUBSTANTIALLY_RESOLVED" ? "good" : "neutral"}>{r.statusLabel}</Badge>
+                    </td>
+                    <td style={td}>{pct(r.conditionReductionPct)}</td>
+                    <td style={td}>{r.attributionLabel ?? "n/a"}</td>
+                    <td style={td}>
+                      <LinkButton href={r.href}>Open closeout</LinkButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {b.closeout.recurrenceReviews.length ? (
+          <div data-testid="recurrence-reviews" style={{ marginTop: 14 }}>
+            <h3 style={{ fontSize: 14, margin: "0 0 6px" }}>Possible recurrences awaiting review</h3>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>The condition looks like an earlier closed one but does not match exactly, so it is not linked automatically. Management decides.</p>
+            {b.closeout.recurrenceReviews.map((r) => (
+              <div key={r.recurrenceId} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
+                <div style={{ fontSize: 14 }}>
+                  <Link href={`/board/candidates/${r.candidateId}`}>{r.candidateTitle ?? r.candidateId}</Link> may be a recurrence of{" "}
+                  <Link href={`/board/candidates/${r.priorCandidateId}/closeout`}>{r.priorTitle ?? r.priorCandidateId}</Link> (closed as {r.priorResolutionLabel ?? "n/a"}). Basis: {r.matchBasis.replaceAll("_", " ").toLowerCase()}.
+                </div>
+                {mgmt ? (
+                  <ActionForm
+                    candidateId={r.candidateId}
+                    action="resolveRecurrenceReview"
+                    title="Decide this recurrence review"
+                    submitLabel="Record decision"
+                    busyLabel="Saving…"
+                    fields={[
+                      { name: "recurrenceId", label: "Recurrence review", type: "hidden", defaultValue: r.recurrenceId },
+                      { name: "decision", label: "Decision", type: "select", required: true, options: [{ value: "CONFIRM", label: "Confirm: link as a recurrence" }, { value: "DECLINE", label: "Decline: not a recurrence" }] },
+                      { name: "reason", label: "Reason", type: "textarea", required: true },
+                    ]}
+                  />
+                ) : (
+                  <Empty>Management decides recurrence links.</Empty>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </Section>
+
       {/* 6. Management decisions required */}
       <Section id="decisions" title="Management Decisions Required" subtitle="Everything that needs a management decision, with why, who owns it, the recommended decision and where to act.">
         {b.decisions.items.length === 0 ? (
@@ -356,6 +462,48 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
 
       {/* 7. Results */}
       <Section id="results" title="Results and Business Impact" subtitle={b.results.basisNotice}>
+        {b.results.realizedBusinessImpact ? (
+          <div data-testid="formal-results" style={{ marginBottom: 12 }}>
+            <p style={{ marginTop: 0 }}>
+              <Badge tone="good">Formal closeout</Badge> {b.results.realizedBusinessImpact.closedCount} candidate{b.results.realizedBusinessImpact.closedCount === 1 ? "" : "s"} formally closed
+              {b.results.realizedBusinessImpact.avgConditionReductionPct === null ? "" : ` · average condition reduction ${b.results.realizedBusinessImpact.avgConditionReductionPct}%`}
+              {b.results.realizedBusinessImpact.recurrence.recurred ? ` · ${b.results.realizedBusinessImpact.recurrence.recurred} recurred` : ""}.
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
+              {b.results.realizedBusinessImpact.resolutionCounts.map((r) => (
+                <li key={r.status}>
+                  {r.label}: {r.count}
+                </li>
+              ))}
+            </ul>
+            {b.results.realizedBusinessImpact.attributedTotals.length ? (
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 14 }} data-testid="attributed-totals">
+                {b.results.realizedBusinessImpact.attributedTotals.map((t) => (
+                  <li key={`${t.measure}${t.unit}`}>
+                    {t.label}: {money(t.total, t.unit)} (evidenced, Confirmed / Probable contribution; {t.items} candidate{t.items === 1 ? "" : "s"})
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: 13, color: "var(--muted)" }}>No evidenced business impact is credited to the action yet.</p>
+            )}
+            {b.results.realizedBusinessImpact.observedNotAttributedTotals.length ? (
+              <p style={{ fontSize: 13, color: "var(--muted)" }}>
+                Evidenced but not credited to IAM (Possible, Unclear, External or Negative attribution; shown separately, never added in):{" "}
+                {b.results.realizedBusinessImpact.observedNotAttributedTotals.map((t) => `${t.label} ${money(t.total, t.unit)}`).join("; ")}.
+              </p>
+            ) : null}
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13 }}>
+              {b.results.realizedBusinessImpact.closedItems.slice(0, 8).map((i) => (
+                <li key={i.candidateId}>
+                  <Link href={i.href}>{i.title ?? i.candidateId}</Link> · {i.finalLabel}
+                  {i.conditionReductionPct === null ? "" : ` · reduction ${i.conditionReductionPct}%`} · attribution {i.attributionLabel} · confidence {i.outcomeConfidence}
+                </li>
+              ))}
+            </ul>
+            <p style={{ fontSize: 12, color: "var(--muted)" }}>{b.results.realizedBusinessImpact.statement}</p>
+          </div>
+        ) : null}
         <p style={{ marginTop: 0 }}>
           <Badge tone="warn">Preliminary · operational</Badge> Last {b.results.windowDays} days: {b.results.completedActions} completed, {b.results.measuredCompletions} measured, {b.results.awaitingMeasurement} awaiting measurement.
         </p>

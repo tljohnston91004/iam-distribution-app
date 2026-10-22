@@ -18,6 +18,7 @@ import type { WorkflowActor } from "../workflow";
 import { actorFromFrontDoor } from "./actor";
 import { buildBoard, type BoardView } from "./board";
 import { readActionPlan, type ActionPlanView } from "./plan";
+import { readCloseout, readEffectiveness, type CloseoutView, type EffectivenessView } from "../closeout";
 
 export interface BoardSession {
   config: DposIntegrationConfig;
@@ -59,6 +60,19 @@ export async function loadPlan(s: BoardSession, candidateId: string): Promise<Ac
     if (isDposError(e) && e.httpStatus === 404) return null;
     throw e;
   }
+}
+
+export async function loadCloseout(s: BoardSession, candidateId: string): Promise<CloseoutView | null> {
+  try {
+    return await readCloseout(prisma, s.ctx, candidateId, s.actor);
+  } catch (e) {
+    if (isDposError(e) && e.httpStatus === 404) return null;
+    throw e;
+  }
+}
+
+export async function loadLearning(s: BoardSession): Promise<EffectivenessView> {
+  return readEffectiveness(prisma, s.ctx);
 }
 
 export function blocked(code: string, message: string): ReactElement {

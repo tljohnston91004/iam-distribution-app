@@ -8,6 +8,7 @@ import type { CapacitySnapshot } from "../workflow/read";
 import type { StoredHealth } from "../health/service";
 import { exposureOf, num, titleOf, type CandidateFacts } from "./facts";
 import type { PendingIndicator } from "./pending";
+import type { ClosedImpactSummary } from "../closeout/read";
 
 const TOP_STATES: readonly string[] = ["NEW_CANDIDATE", "PRESENTED", "ESCALATED"];
 const PORTFOLIO_STATES: readonly string[] = ["APPROVED_ASSIGNED", "PENDING_OWNER_ACCEPTANCE", "ACTIVE_ACTION"];
@@ -226,8 +227,11 @@ export function decisionsRequired(facts: CandidateFacts[], src: DecisionSources)
 // ---- 7. Results & Business Impact --------------------------------------------------------------------------------------------
 
 export interface ResultsView {
-  /** Always "PRELIMINARY_OPERATIONAL": there is no closeout attribution yet, so realized business impact is never claimed. */
-  basis: "PRELIMINARY_OPERATIONAL";
+  /**
+   * "PRELIMINARY_OPERATIONAL" until a candidate is formally closed. Once one is, realized outcomes come ONLY from formal closeout
+   * (evidenced, attributed, confidence-labelled): "OPERATIONAL_WITH_FORMAL_CLOSEOUT". Estimated savings are never counted as results.
+   */
+  basis: "PRELIMINARY_OPERATIONAL" | "OPERATIONAL_WITH_FORMAL_CLOSEOUT";
   basisNotice: string;
   windowDays: number;
   completedActions: number;
@@ -235,13 +239,14 @@ export interface ResultsView {
   awaitingMeasurement: number;
   conditionReduction: Array<{ unit: string; baselineExposure: number; currentExposure: number; reducedBy: number; reductionPct: number | null; actions: number }>;
   activeExposure: Array<{ unit: string; exposure: number; actions: number }>;
-  realizedBusinessImpact: null;
+  /** Formal-closeout realized outcomes (Stage 4E). Null until at least one candidate is formally closed. */
+  realizedBusinessImpact: ClosedImpactSummary | null;
   items: Array<{ candidateId: string; title: string; completedAt: string; conditionReductionPct: number | null; measured: boolean; detailHref: string }>;
 }
 
 const DAY = 24 * 3600 * 1000;
 
-export function resultsAndImpact(facts: CandidateFacts[], now: Date, windowDays = 90): ResultsView {
+export function resultsAndImpact(facts: CandidateFacts[], now: Date, windowDays = 90, formal: ClosedImpactSummary | null = null): ResultsView {
   const since = now.getTime() - windowDays * DAY;
   const completed = facts.filter((f) => f.row.actionTracking?.actionStatus === "COMPLETED" && f.row.actionTracking.completedAt && f.row.actionTracking.completedAt.getTime() >= since);
   const measured = completed.filter((f) => f.row.actionTracking!.conditionReductionStatus === "MEASURED");
@@ -269,15 +274,18 @@ export function resultsAndImpact(facts: CandidateFacts[], now: Date, windowDays 
     active.set(unit, cur);
   }
   return {
-    basis: "PRELIMINARY_OPERATIONAL",
-    basisNotice: "Preliminary operational results from action tracking. There is no closeout attribution yet, so realized business impact is not claimed.",
+    basis: formal && formal.closedCount > 0 ? "OPERATIONAL_WITH_FORMAL_CLOSEOUT" : "PRELIMINARY_OPERATIONAL",
+    basisNotice:
+      formal && formal.closedCount > 0
+        ? "Realized outcomes come only from formally closed candidates (evidenced, attributed and confidence-labelled). Operational action tracking below remains preliminary, and estimated savings are never counted as results."
+        : "Preliminary operational results from action tracking. There is no closeout attribution yet, so realized business impact is not claimed.",
     windowDays,
     completedActions: completed.length,
     measuredCompletions: measured.length,
     awaitingMeasurement: completed.length - measured.length,
     conditionReduction: [...byUnit.entries()].map(([unit, v]) => ({ unit, baselineExposure: v.baseline, currentExposure: v.current, reducedBy: Math.round((v.baseline - v.current) * 100) / 100, reductionPct: v.baseline > 0 ? Math.round(((v.baseline - v.current) / v.baseline) * 10000) / 100 : null, actions: v.actions })),
     activeExposure: [...active.entries()].map(([unit, v]) => ({ unit, exposure: v.exposure, actions: v.actions })),
-    realizedBusinessImpact: null,
+    realizedBusinessImpact: formal && formal.closedCount > 0 ? formal : null,
     items: completed
       .map((f) => ({ candidateId: f.row.candidateId, title: titleOf(f), completedAt: f.row.actionTracking!.completedAt!.toISOString(), conditionReductionPct: f.row.actionTracking!.conditionReductionStatus === "MEASURED" ? f.row.actionTracking!.conditionReductionPct : null, measured: f.row.actionTracking!.conditionReductionStatus === "MEASURED", detailHref: candidateHref(f.row.candidateId) }))
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt) || a.title.localeCompare(b.title)),
@@ -293,7 +301,7 @@ export interface WorkingWellItem {
   href: string | null;
 }
 
-export function workingWell(facts: CandidateFacts[], health: StoredHealth | null, healthChange: { scoreChange: number | null; material: boolean } | null, now: Date): { items: WorkingWellItem[]; note: string | null } {
+export function workingWell(facts: CandidateFacts[], health: StoredHealth | null, healthChange: { scoreChange: number | null; material: boolean } | null, now: Date, formal: ClosedImpactSummary | null = null): { items: WorkingWellItem[]; note: string | null } {
   const items: WorkingWellItem[] = [];
   if (health) {
     for (const c of health.components) {
@@ -309,6 +317,19 @@ export function workingWell(facts: CandidateFacts[], health: StoredHealth | null
     if (t?.actionStatus === "COMPLETED" && t.conditionReductionStatus === "MEASURED" && (t.conditionReductionPct ?? 0) >= 50 && t.completedAt && t.completedAt.getTime() >= since) {
       items.push({ kind: "MEASURED_REDUCTION", text: `${titleOf(f)} reduced its condition by ${t.conditionReductionPct}%.`, evidence: `Baseline ${t.baselineExposure} to ${t.currentExposure}${t.exposureUnit ? ` ${t.exposureUnit}` : ""}, measured.`, href: candidateHref(f.row.candidateId) });
     }
+  }
+  // Stage 4E: formally closed outcomes. Only a successful, credited (Confirmed / Probable), at least Medium-confidence closeout counts; a
+  // provisional Health score or a bare sequence in time is never offered as proof.
+  const sinceClosed = now.getTime() - 90 * DAY;
+  for (const c of formal?.closedItems ?? []) {
+    if (!c.closedAt || Date.parse(c.closedAt) < sinceClosed) continue;
+    if (!["FULLY_RESOLVED", "SUBSTANTIALLY_RESOLVED"].includes(c.finalStatus) || !c.attributed || !["HIGH", "MEDIUM"].includes(c.outcomeConfidence)) continue;
+    items.push({
+      kind: "CLOSEOUT_RESOLVED",
+      text: `${c.title ?? "A candidate"} was closed ${c.finalLabel}${c.conditionReductionPct !== null ? ` (condition reduced ${c.conditionReductionPct}%)` : ""}.`,
+      evidence: `Formal closeout approved by management; attribution ${c.attributionLabel}; outcome confidence ${c.outcomeConfidence}.`,
+      href: c.href,
+    });
   }
   return { items, note: items.length ? null : "No evidence-based positive result is available yet. Nothing is shown unless a stored measurement supports it." };
 }

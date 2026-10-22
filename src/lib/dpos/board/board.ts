@@ -18,6 +18,7 @@ import { compareHealth, toStoredHealth, type HealthChange, type StoredHealth } f
 import { computeCapacity } from "../workflow/read";
 import type { WorkflowActor } from "../workflow/permissions";
 import { isManagementActor } from "./actor";
+import { pendingRecurrenceReviews, readClosedImpact, readCloseoutBoardRows, type CloseoutBoardRow, type PendingRecurrenceReview } from "../closeout";
 import { loadCandidateFacts, titleOf } from "./facts";
 import { deriveFreshness, type FreshnessView, type RefreshStatusLike } from "./freshness";
 import { boardPending, pendingByCandidate, type BoardPending } from "./pending";
@@ -98,6 +99,8 @@ export interface BoardView {
   topPriorities: { items: PriorityItem[]; note: string };
   portfolio: { rows: PortfolioRow[]; holdoverBasis: string; note: string };
   decisions: { items: DecisionItem[]; count: number };
+  /** Stage 4E: Completed History distinguishes Execution Complete from Closeout Complete (never in Top Priorities or the Active Portfolio). */
+  closeout: { pending: CloseoutBoardRow[]; closed: CloseoutBoardRow[]; recurrenceReviews: PendingRecurrenceReview[]; note: string; learningHref: string };
   results: ResultsView;
   workingWell: { items: WorkingWellItem[]; note: string | null };
   capacity: CapacityView;
@@ -193,8 +196,11 @@ export async function buildBoard(db: Db, ctx: { dposCompanyId: string; companyTi
   const emergencies = await db.iamCoreEmergencyReview.findMany({ where: { dposCompanyId: co, status: "CANDIDATE" }, select: { candidateId: true, additionalEmergency: true } });
   const recurrences = await db.iamCoreCandidate.findMany({ where: { dposCompanyId: co, closedAt: null, recurrenceOfCandidateId: { not: null }, recurrenceOf: { lifecycleState: "RISK_ACCEPTED" } }, select: { candidateId: true, recurrenceOfCandidateId: true } });
   const decisions = decisionsRequired(facts, { forcedReviews, emergencyCandidates: emergencies, riskAcceptedRecurrences: recurrences.map((r) => ({ candidateId: r.candidateId, previousCandidateId: r.recurrenceOfCandidateId! })) });
-  const results = resultsAndImpact(facts, now);
-  const well = workingWell(facts, current, change ? { scoreChange: change.scoreChange, material: change.material } : null, now);
+  const formal = await readClosedImpact(db, { dposCompanyId: co });
+  const closeoutRows = await readCloseoutBoardRows(db, { dposCompanyId: co });
+  const recurrenceReviews = await pendingRecurrenceReviews(db, { dposCompanyId: co });
+  const results = resultsAndImpact(facts, now, 90, formal);
+  const well = workingWell(facts, current, change ? { scoreChange: change.scoreChange, material: change.material } : null, now, formal);
   const capacity = capacityView(await computeCapacity(db as never, { dposCompanyId: co }, now));
 
   const curveNotice = current && current.curveStatus !== "APPROVED" ? `The component curves behind this score are ${current.curveStatus}: they await Product Owner approval, so treat the score as provisional.` : null;
@@ -242,6 +248,13 @@ export async function buildBoard(db: Db, ctx: { dposCompanyId: string; companyTi
       note: "Action completion % and condition reduction % are different measures and are never combined.",
     },
     decisions: { items: decisions, count: decisions.length },
+    closeout: {
+      pending: closeoutRows.pending,
+      closed: closeoutRows.closed,
+      recurrenceReviews,
+      note: "Execution Complete is not Closeout Complete: a candidate leaves the active actions when its work is done, but it is permanently closed only after management approves a measured outcome. A returning condition becomes a new, linked candidate.",
+      learningHref: "/board/learning",
+    },
     results,
     workingWell: well,
     capacity,

@@ -99,8 +99,8 @@ export async function approvedCandidate(f: Fixture, opts: { key?: string; depart
 }
 
 /** Approved, owner assigned (Pending Owner Acceptance). */
-export async function pendingAcceptanceCandidate(f: Fixture, opts: Parameters<typeof approvedCandidate>[1] & { contributors?: string[] } = {}): Promise<string> {
-  const id = await presentedCandidate(f, { key: opts.key });
+export async function pendingAcceptanceCandidate(f: Fixture, opts: Parameters<typeof approvedCandidate>[1] & { contributors?: string[]; describe?: Partial<GroupDescription> } = {}): Promise<string> {
+  const id = await presentedCandidate(f, { key: opts.key, ...(opts.describe ? { describe: opts.describe } : {}) });
   await approveCandidate(f.db, f.ctx, MANAGER, id, {
     plan: PLAN,
     assignment: {

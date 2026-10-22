@@ -174,7 +174,7 @@ export function MarkReviewed() {
 export interface FieldSpec {
   name: string;
   label: string;
-  type?: "text" | "textarea" | "number" | "date" | "select" | "checkbox";
+  type?: "text" | "textarea" | "number" | "date" | "select" | "checkbox" | "hidden";
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
@@ -223,7 +223,10 @@ export function ActionForm(props: { candidateId: string; action: string; title: 
       <SpinKeyframes />
       <form onSubmit={submit} style={{ marginTop: 10, display: "grid", gap: 10 }} data-testid={`form-${props.action}`}>
         {props.intro ? <div style={{ color: "var(--muted)", fontSize: 13 }}>{props.intro}</div> : null}
-        {props.fields.map((f) => (
+        {props.fields.map((f) =>
+          f.type === "hidden" ? (
+            <input key={f.name} type="hidden" name={f.name} defaultValue={f.defaultValue} />
+          ) : (
           <label key={f.name} style={{ display: "grid", gap: 4, fontSize: 13 }}>
             <span style={{ fontWeight: 500 }}>
               {f.label}
@@ -246,7 +249,8 @@ export function ActionForm(props: { candidateId: string; action: string; title: 
             )}
             {f.help ? <span style={{ color: "var(--muted)" }}>{f.help}</span> : null}
           </label>
-        ))}
+          ),
+        )}
         <div>
           <button type="submit" disabled={busy} aria-busy={busy} style={buttonStyle(busy)}>
             {busy ? <Spinner /> : null}

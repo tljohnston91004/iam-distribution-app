@@ -3,7 +3,8 @@
  *
  *   npx tsx scripts/iam-migrate.ts status
  *   npx tsx scripts/iam-migrate.ts apply --yes [--dry-run] [--backup-dir <dir>]
- *   npx tsx scripts/iam-migrate.ts rollback-4d --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4D health tables only)
+ *   npx tsx scripts/iam-migrate.ts rollback-4e --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4E closeout / learning / recurrence tables only)
+ *   npx tsx scripts/iam-migrate.ts rollback-4d --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4D health tables only; refused while 4E is applied)
  *   npx tsx scripts/iam-migrate.ts rollback-4c --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4C scoring tables only; refused while 4D is applied)
  *   npx tsx scripts/iam-migrate.ts rollback-4b --yes [--allow-data-loss] [--backup-dir <dir>]   (Stage 4B workflow tables only; refused while 4C is applied)
  *   npx tsx scripts/iam-migrate.ts rollback-4a --yes [--allow-data-loss] [--backup-dir <dir>]   (refused while 4B is applied)
@@ -19,7 +20,9 @@ import {
   STAGE_4B_MIGRATION,
   STAGE_4C_MIGRATION,
   STAGE_4D_MIGRATION,
+  STAGE_4E_MIGRATION,
   governedMigrate,
+  governedRollbackStage4E,
   governedRollbackStage4A,
   governedRollbackStage4B,
   governedRollbackStage4C,
@@ -73,6 +76,7 @@ async function main() {
       stage4bApplied: (applied ?? []).includes(STAGE_4B_MIGRATION),
       stage4cApplied: (applied ?? []).includes(STAGE_4C_MIGRATION),
       stage4dApplied: (applied ?? []).includes(STAGE_4D_MIGRATION),
+      stage4eApplied: (applied ?? []).includes(STAGE_4E_MIGRATION),
     }, null, 2));
     return;
   }
@@ -89,6 +93,15 @@ async function main() {
       process.exit(2);
     }
     const r = await governedRollbackStage4A({ databaseFile, repoRoot: REPO, backupDir, allowDataLoss: flag("--allow-data-loss") });
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(r.ok ? 0 : 1);
+  }
+  if (cmd === "rollback-4e") {
+    if (!flag("--yes")) {
+      console.log("Rollback removes ONLY the Stage 4E closeout, learning and recurrence tables (V1.5 and Stage 4A/4B/4C/4D tables untouched). Re-run with --yes to proceed.");
+      process.exit(2);
+    }
+    const r = await governedRollbackStage4E({ databaseFile, repoRoot: REPO, backupDir, allowDataLoss: flag("--allow-data-loss") });
     console.log(JSON.stringify(r, null, 2));
     process.exit(r.ok ? 0 : 1);
   }
@@ -119,7 +132,7 @@ async function main() {
     console.log(JSON.stringify(r, null, 2));
     process.exit(r.ok ? 0 : 1);
   }
-  console.error("Usage: iam-migrate.ts status | apply --yes [--dry-run] | rollback-4d --yes [--allow-data-loss] | rollback-4c --yes [--allow-data-loss] | rollback-4b --yes [--allow-data-loss] | rollback-4a --yes [--allow-data-loss] (4b first)");
+  console.error("Usage: iam-migrate.ts status | apply --yes [--dry-run] | rollback-4e --yes [--allow-data-loss] | rollback-4d --yes [--allow-data-loss] | rollback-4c --yes [--allow-data-loss] | rollback-4b --yes [--allow-data-loss] | rollback-4a --yes [--allow-data-loss] (4b first)");
   process.exit(2);
 }
 

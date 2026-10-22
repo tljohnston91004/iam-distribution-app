@@ -4,6 +4,7 @@ import { ActionForm, type FieldSpec } from "@/components/board/client";
 import { Badge, Crumbs, DL, Empty, LinkButton, Pending, Section, day, money, pct, td, th, when } from "@/components/board/ui";
 import { prisma } from "@/lib/db";
 import { boardSession, loadPlan } from "@/lib/dpos/board/server";
+import { readRecurrenceContext } from "@/lib/dpos/closeout";
 import { readWorkflowView, ACTION_STATUS_LABELS, type ActionStatus } from "@/lib/dpos/workflow";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export default async function CandidatePage({ params }: { params: Promise<{ cand
   const status = view.actionTracking?.actionStatus ?? "NOT_STARTED";
   const pendingPause = view.pauseRequests.find((r) => r.status === "REQUESTED");
   const open = view.decisionRequired.filter((d) => d.status === "OPEN");
+  const recurrence = await readRecurrenceContext(prisma, candidateId);
+  const showCloseout = wf === "COMPLETED_HISTORY" || view.closedAt !== null;
 
   const approveFields: FieldSpec[] = [
     { name: "planSummary", label: "Management plan (what will be done)", type: "textarea", required: true, defaultValue: p.systemRecommendation.direction },
@@ -54,6 +57,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ cand
           <LinkButton href="/board">Back to Decision Board</LinkButton>
           <LinkButton href={p.links.plan}>View Recommended Action Plan</LinkButton>
           <LinkButton href={p.links.evidence}>View evidence ({p.condition.evidenceCount})</LinkButton>
+          {showCloseout ? <LinkButton href={`/board/candidates/${p.candidateId}/closeout`}>Formal closeout</LinkButton> : null}
         </div>
       </header>
 
@@ -72,6 +76,25 @@ export default async function CandidatePage({ params }: { params: Promise<{ cand
           ]}
         />
       </Section>
+
+      {recurrence.isRecurrence && recurrence.prior ? (
+        <Section id="recurrence" title="Recurrence of an earlier condition" subtitle={recurrence.statement}>
+          <div data-testid="recurrence-context">
+            <p style={{ margin: "0 0 6px", fontSize: 14 }}>
+              Recurrence #{recurrence.recurrenceSequence}: the condition returned after{" "}
+              <Link href={`/board/candidates/${recurrence.prior.candidateId}/closeout`}>{recurrence.prior.title ?? recurrence.prior.candidateId}</Link> was closed as {recurrence.prior.finalResolutionLabel ?? "n/a"}.
+            </p>
+            <DL
+              rows={[
+                ["Prior action", recurrence.prior.actionSummary ?? "n/a"],
+                ["Prior plan", recurrence.prior.planSummary ?? "n/a"],
+                ["Prior condition reduction", pct(recurrence.prior.conditionReductionPct)],
+                ["Prior lessons", recurrence.prior.lessons ? [recurrence.prior.lessons.whatWorked, recurrence.prior.lessons.whatDidNotWork, recurrence.prior.lessons.futureHandling].filter(Boolean).join(" · ") || "None" : "None recorded"],
+              ]}
+            />
+          </div>
+        </Section>
+      ) : null}
 
       {open.length ? (
         <Section id="decision-required" title="Decision required">
