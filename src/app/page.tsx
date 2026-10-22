@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { shortDate } from "@/lib/format";
 import { pageGate } from "@/lib/dpos/page-gate";
-import { boundIamCompanyId } from "@/lib/dpos/runtime";
+import { boundIamCompanyId, isIntegratedMode } from "@/lib/dpos/runtime";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const gate = await pageGate();
   if (gate) return gate;
+  // Decision Board V4 is the integrated front page; standalone V1.5 keeps this dashboard unchanged.
+  if (isIntegratedMode()) redirect("/board");
   // DPOS_INTEGRATED: only the bound company's review cycles; STANDALONE_LEGACY: unchanged (all).
   const boundCompanyId = await boundIamCompanyId();
   const runs = await prisma.iamRun.findMany({

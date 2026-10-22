@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { flushOutbox } from "./outbox";
 import { integratedConfig, operationalServices } from "./runtime";
 import { IAM_SERVICE_CAPABILITIES } from "./service-identity";
+import { healthDepsFromClient } from "./health/pipeline";
 import { schedulerTick, startScheduler, type RunningScheduler } from "./scheduler";
 
 const g = globalThis as unknown as { __iamDposWorkers?: { scheduler: RunningScheduler; outbox: NodeJS.Timeout } };
@@ -30,7 +31,7 @@ export function startBackgroundWorkers(): void {
   const scheduler = startScheduler(
     async () => {
       const { client, context, config: cfg } = await operationalServices(IAM_SERVICE_CAPABILITIES.GOVERNED_INPUT_READ);
-      return { db: prisma, config: cfg, context, client };
+      return { db: prisma, config: cfg, context, client, health: healthDepsFromClient(client) };
     },
     config.refresh.pollSeconds,
     (r) => {

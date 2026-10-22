@@ -67,19 +67,20 @@ describe("repository guardrails", () => {
     assert.deepEqual(hits, ["scripts/iam-dpos.ts", "src/lib/dpos/service-identity.ts", "tests/dpos/contract-and-scan.test.ts", "tests/dpos/service-identity.test.ts"].sort());
   });
 
-  it("Stage 4A adds no user-facing screens, no scoring/ranking/recommendation logic, and leaves V1.5 UI components untouched", () => {
+  it("Stage 4D adds user-facing screens only under the integrated board paths, and leaves V1.5 UI components and the stylesheet untouched", () => {
     const added = new Set<string>([
       ...git("diff", "--name-status", "--diff-filter=A", "b48e212", "--", "src/app", "src/components").split("\n").filter(Boolean).map((l) => l.split("\t")[1]!),
       ...git("ls-files", "--others", "--exclude-standard", "src/app", "src/components").split("\n").filter(Boolean),
     ]);
-    const unexpected = [...added].filter((f) => !f.startsWith("src/app/api/dpos/") && f !== "src/instrumentation.ts");
-    assert.deepEqual(unexpected, [], "only non-customer-facing /api/dpos endpoints may be added under src/app");
-    assert.equal(git("diff", "--stat", "b48e212", "--", "src/components", "src/app/globals.css"), "", "no V1.5 component or stylesheet changed");
+    // Stage 4D (authorized) adds the integrated-mode Decision Board V4 (/board) and its components; nothing else may be added.
+    const unexpected = [...added].filter((f) => !f.startsWith("src/app/api/dpos/") && !f.startsWith("src/app/board/") && !f.startsWith("src/components/board/") && f !== "src/instrumentation.ts");
+    assert.deepEqual(unexpected, [], "only /api/dpos endpoints and the integrated /board screens may be added under src/app");
+    assert.equal(git("diff", "--name-status", "--diff-filter=MD", "b48e212", "--", "src/components", "src/app/globals.css"), "", "no V1.5 component or stylesheet changed");
     assert.match(fs.readFileSync(path.join(REPO_ROOT, "src", "app", "page.tsx"), "utf8"), /Decision Priority · IAM Version 1\.5/);
     for (const f of dposSources()) {
       const src = fs.readFileSync(f, "utf8");
       assert.doesNotMatch(src, /from\s+["']@\/lib\/iam\/(scoring|engine|actions|lifecycle|presentation)/, `${rel(f)} must not use V1.5 scoring/engine code`);
-      assert.doesNotMatch(src, /healthScore|InventoryManagementHealth|enterpriseRank|learningLoop/i, `${rel(f)} must not implement later-stage features`);
+      assert.doesNotMatch(src, /enterpriseRank|learningLoop|finalCloseoutEngine/i, `${rel(f)} must not implement later-stage features (enterprise ranking, the learning loop)`);
     }
   });
 

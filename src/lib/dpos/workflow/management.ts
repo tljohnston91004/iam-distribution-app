@@ -67,7 +67,7 @@ export async function approveCandidate(db: PrismaClient, ctx: Ctx, actor: Workfl
       throw new DposError("DEPARTMENT_REQUIRED", "A responsible department is required before a task owner can be assigned.", 400);
     }
     const reason = optionalText(input.reason, "reason");
-    const { plan, recommendation, deviates } = await createApprovedPlan(env, candidateId, input.plan);
+    const { plan, recommendation, deviates, previous } = await createApprovedPlan(env, candidateId, input.plan);
     await ensureTracking(env, candidate, input);
     const decision = await recordDecision(tx, ctx, candidateId, {
       decisionType: "APPROVE",
@@ -98,6 +98,25 @@ export async function approveCandidate(db: PrismaClient, ctx: Ctx, actor: Workfl
       },
       decision.decisionId,
     );
+    if (previous) {
+      // 4D-D6: approving again after an earlier approved plan (for example after a return for review) is a plan REVISION, so it
+      // emits the dedicated PLAN_REVISED governance event too. It is never carried only by the generic approval event.
+      await em.emit(
+        "PLAN_REVISED",
+        {
+          plan: {
+            planVersion: plan.planVersion,
+            previousPlanVersion: previous.planVersion,
+            revisionReason: reason ?? "The candidate was approved again with a new plan version.",
+            revisedBy: actor.actorId,
+            revisedAt: at.toISOString(),
+            approvedPlanRef: plan.planId,
+            approvedPlanStatus: "APPROVED",
+          },
+        },
+        plan.planId,
+      );
+    }
     let ownerAssigned = false;
     if (input.assignment) {
       const a = input.assignment;

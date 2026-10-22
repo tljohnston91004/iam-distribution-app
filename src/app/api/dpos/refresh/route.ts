@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { dposRoute } from "@/lib/dpos/dpos-route";
+import { healthDepsFromClient } from "@/lib/dpos/health";
 import { getRefreshStatus, runRefresh } from "@/lib/dpos/refresh";
 import { operationalServices } from "@/lib/dpos/runtime";
 
@@ -17,7 +18,7 @@ export const POST = dposRoute(
   async (_req, auth) => {
     const { client, context, config } = await operationalServices();
     const result = await runRefresh(
-      { db: prisma, config, context, client },
+      { db: prisma, config, context, client, health: healthDepsFromClient(client) },
       { trigger: "MANUAL_REFRESH", requestedBy: auth.user.userId ?? auth.user.identityId ?? "unknown" },
     );
     return NextResponse.json(result, { status: result.ok ? 200 : 502 });

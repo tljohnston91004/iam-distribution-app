@@ -15,6 +15,7 @@ import type { Db } from "./errors";
 import { isDposError } from "./errors";
 import { resolveCompanySchedule, runRefresh, type RefreshResult } from "./refresh";
 import type { DataHubClient } from "./data-hub-client";
+import type { HealthRefreshDeps } from "./health/pipeline";
 
 const DAY = 86_400_000;
 const CATCH_UP_AFTER_MS = 10 * 60_000;
@@ -44,6 +45,8 @@ export interface SchedulerDeps {
   config: DposIntegrationConfig;
   context: DposCompanyContext;
   client: Pick<DataHubClient, "getInputStatus" | "getSyncStatus">;
+  /** Same Health pipeline as the manual refresh (one shared implementation inside runRefresh). */
+  health?: HealthRefreshDeps | null;
   now?: () => Date;
 }
 

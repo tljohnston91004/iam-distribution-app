@@ -26,6 +26,7 @@ export const BASELINE_MIGRATION = "20260724000000_v1_5_baseline";
 export const STAGE_4A_MIGRATION = "20261021100000_stage4a_core_integration_foundation";
 export const STAGE_4B_MIGRATION = "20261021140000_stage4b_workflow";
 export const STAGE_4C_MIGRATION = "20261021200000_stage4c_scoring";
+export const STAGE_4D_MIGRATION = "20261022100000_stage4d_health_board";
 
 export interface GovernedMigrateOptions {
   /** Absolute path of the SQLite file (created when absent). */
@@ -433,6 +434,11 @@ export function stage4cTableNames(repoRoot: string): string[] {
   return migrationTableNames(repoRoot, STAGE_4C_MIGRATION);
 }
 
+/** Tables created by the Stage 4D migration (derived from its SQL; never hard-coded). */
+export function stage4dTableNames(repoRoot: string): string[] {
+  return migrationTableNames(repoRoot, STAGE_4D_MIGRATION);
+}
+
 /** Stage 4A can only be reversed after Stage 4B has been reversed (4B tables reference 4A tables). */
 export async function governedRollbackStage4A(opts: RollbackOptions): Promise<RollbackResult> {
   const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
@@ -450,9 +456,18 @@ export async function governedRollbackStage4B(opts: RollbackOptions): Promise<Ro
   return rollbackStage(opts, STAGE_4B_MIGRATION, "4b", () => true);
 }
 
-/** Stage 4C (scoring and ranking) tables only. V1.5, Stage 4A and Stage 4B tables are untouched. */
+/** Stage 4C (scoring and ranking) tables only. V1.5, Stage 4A and Stage 4B tables are untouched. Refused while 4D is applied. */
 export async function governedRollbackStage4C(opts: RollbackOptions): Promise<RollbackResult> {
+  const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
+  if (applied?.includes(STAGE_4D_MIGRATION)) {
+    return { ok: false, reason: "Stage 4D is applied; roll Stage 4D back first (rollback-4d), then Stage 4C." };
+  }
   return rollbackStage(opts, STAGE_4C_MIGRATION, "4c", () => true);
+}
+
+/** Stage 4D (health score, health evidence and board review) tables only. Everything earlier is untouched. */
+export async function governedRollbackStage4D(opts: RollbackOptions): Promise<RollbackResult> {
+  return rollbackStage(opts, STAGE_4D_MIGRATION, "4d", () => true);
 }
 
 async function rollbackStage(opts: RollbackOptions, migration: string, label: string, countTable: (table: string) => boolean): Promise<RollbackResult> {

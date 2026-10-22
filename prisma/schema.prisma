@@ -1659,3 +1659,86 @@ model IamCoreDisplayChange {
   @@index([dposCompanyId, createdAt])
   @@map("iam_core_display_changes")
 }
+
+// =====================================================================================================================
+// Stage 4D: Inventory Management Health Score, board review marks (additive).
+//
+// New tables only. Governed health EVIDENCE is versioned and append-only; every Health Score is an immutable history row that
+// stores its calculation version, its curve status (PROVISIONAL until the Product Owner approves the curves), every component
+// value, availability and effective weight, and the source references it used. Nothing here scores candidates, changes a
+// Stage 4C result, or recreates RSE logic.
+// =====================================================================================================================
+
+/// Governed health evidence for one component (the authoritative RSE / Data Hub values IAM consumes; never recomputed here).
+model IamCoreHealthEvidence {
+  evidenceId      String   @id @default(uuid()) @map("evidence_id")
+  dposCompanyId   String   @map("dpos_company_id")
+  /// POSITION_BALANCE, EFFICIENCY, SLOW_NONMOVING, COMPANY_FACTS
+  kind            String
+  evidenceVersion Int      @map("evidence_version")
+  evidenceJson    String   @map("evidence_json")
+  evidenceHash    String   @map("evidence_hash")
+  /// Governed source references (RSE run / Data Hub batch ids). Required: evidence without a source is refused.
+  sourceRefsJson  String   @map("source_refs_json")
+  /// The "data current through" instant of the evidence.
+  asOf            DateTime? @map("as_of")
+  recordedBy      String   @map("recorded_by")
+  recordedByRole  String   @map("recorded_by_role")
+  recordedAt      DateTime @map("recorded_at")
+
+  @@unique([dposCompanyId, kind, evidenceVersion])
+  @@index([dposCompanyId, kind, recordedAt])
+  @@map("iam_core_health_evidence")
+}
+
+/// One immutable Health Score calculation (history is never rewritten; a future formula version never reinterprets old rows).
+model IamCoreHealthScore {
+  healthScoreId      String   @id @default(uuid()) @map("health_score_id")
+  dposCompanyId      String   @map("dpos_company_id")
+  /// IAM_HEALTH_SCORE_V1 ...
+  healthVersion      String   @map("health_version")
+  /// PROVISIONAL (curves pending Product Owner approval) or APPROVED.
+  curveStatus        String   @map("curve_status")
+  configHash         String   @map("config_hash")
+  /// Idempotency key: repeating the same calculation request returns the stored row.
+  calcKey            String?  @map("calc_key")
+  /// Company-local Sunday-Saturday review cycle (the Sunday, YYYY-MM-DD) in which this was calculated.
+  operatingWeekStart String   @map("operating_week_start")
+  companyTimeZone    String?  @map("company_time_zone")
+  calculatedAt       DateTime @map("calculated_at")
+  /// CALCULATED, or NO_COMPONENT_AVAILABLE (no score, no label: nothing is invented and nothing is scored as zero).
+  status             String
+  /// Composite 0..100 rounded half-up to two decimals; null when no component was available.
+  score              Float?
+  /// STRONG, HEALTHY, WATCH, NEEDS_ATTENTION (null with no score).
+  label              String?
+  availableComponents Int     @map("available_components")
+  /// Every component: value, availability, unavailable reason, nominal weight, effective (renormalized) weight, key drivers, evidence refs.
+  componentsJson     String   @map("components_json")
+  /// The source / run / evidence references the calculation used.
+  sourceRefsJson     String   @map("source_refs_json")
+  dataCurrentThrough DateTime? @map("data_current_through")
+  requestedBy        String   @map("requested_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([dposCompanyId, calcKey])
+  @@index([dposCompanyId, calculatedAt])
+  @@index([dposCompanyId, operatingWeekStart])
+  @@map("iam_core_health_scores")
+}
+
+/// "Mark board reviewed": the boundary of "What Changed Since Last Review". Append-only.
+model IamCoreBoardReview {
+  reviewId           String   @id @default(uuid()) @map("review_id")
+  dposCompanyId      String   @map("dpos_company_id")
+  reviewedAt         DateTime @map("reviewed_at")
+  reviewedBy         String   @map("reviewed_by")
+  reviewedByRole     String   @map("reviewed_by_role")
+  operatingWeekStart String   @map("operating_week_start")
+  healthScoreId      String?  @map("health_score_id")
+  note               String?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([dposCompanyId, reviewedAt])
+  @@map("iam_core_board_reviews")
+}

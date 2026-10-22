@@ -65,7 +65,8 @@ export async function createApprovedPlan(env: Pick<OperationEnv, "tx" | "actor" 
       createdBy: actor.actorId,
     },
   });
-  return { plan: created, recommendation: rec, deviates };
+  /** `previous` is the plan version this one replaces (null for the first plan): a non-null value makes this a plan REVISION. */
+  return { plan: created, recommendation: rec, deviates, previous: last };
 }
 
 export interface ContributorInput {

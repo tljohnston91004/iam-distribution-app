@@ -51,6 +51,7 @@ export {
   revokeContributorAuthorization,
   type ReassignInput,
 } from "./assignment";
+export { revisePlan, type RevisePlanInput } from "./plan-revision";
 export {
   startAction,
   updateProgress,

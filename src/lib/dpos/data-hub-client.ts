@@ -6,6 +6,7 @@
  *   - GET  /api/v1/iam-input-contracts
  *   - GET  /api/v1/companies/:id/iam-inputs                              (availability / freshness / validation / mapping)
  *   - GET  /api/v1/companies/:id/iam-inputs/:family/records              (governed values + lineage + quality)
+ *   - GET  /api/v1/companies/:id/iam-inputs/rse-health                   (4D-R: governed RSE result + aging / sell-through aggregates)
  *   - GET  /api/v1/companies/:id/iam/results-return/sync-status          (schedule cross-check)
  *   - POST /api/v1/companies/:id/iam/results-return/events               (Results Return producer)
  *
@@ -253,6 +254,18 @@ export class DataHubClient {
       throw new DataHubClientError("DATA_VALIDATION", "FAMILY_MISMATCH", "Data Hub returned a different input family than requested");
     }
     return page;
+  }
+
+  /**
+   * Stage 4D-R: the governed aggregate RSE result + raw aging / sell-through evidence for the Health components
+   * (GET .../iam-inputs/rse-health). Same dedicated capability as the other governed reads; read-only. The caller validates the
+   * pinned contract (see health/rse-input.ts `assertPinnedContract`).
+   */
+  async readRseHealthInputs(horizonDays?: number): Promise<any> {
+    const q = horizonDays !== undefined ? `?horizonDays=${encodeURIComponent(String(horizonDays))}` : "";
+    const view = await this.get<{ companyId?: unknown }>(`/api/v1/companies/${this.companyId}/iam-inputs/rse-health${q}`);
+    this.assertCompany(view.companyId, "iam-inputs rse-health");
+    return view;
   }
 
   /** Iterate every governed record of a family, page by page. */

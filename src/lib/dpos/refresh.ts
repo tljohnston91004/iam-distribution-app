@@ -24,6 +24,8 @@ import { DataHubClientError, type DataHubClient, type InputStatusResponse } from
 import { DposError, type Db } from "./errors";
 import { writeAudit } from "./audit";
 
+import { runHealthPipeline, type HealthRefreshDeps } from "./health/pipeline";
+
 export type RefreshTrigger = "SCHEDULED_WEEKLY" | "MANUAL_REFRESH";
 const STALE_STARTED_MS = 15 * 60_000;
 
@@ -57,6 +59,11 @@ export interface RefreshDeps {
   config: DposIntegrationConfig;
   context: DposCompanyContext;
   client: Pick<DataHubClient, "getInputStatus" | "getSyncStatus">;
+  /**
+   * Health ingestion (4DR-C4): when present, every refresh (manual AND scheduled - one shared pipeline) also reads the governed RSE
+   * Health inputs, updates the Health evidence and recalculates the Health Score. It never runs candidate scoring.
+   */
+  health?: HealthRefreshDeps | null;
   now?: () => Date;
 }
 
@@ -84,6 +91,20 @@ export interface RefreshResult {
   scheduleStatus: string;
   scheduleReason: string | null;
   warnings: string[];
+  /** Outcome of the Health pipeline run by this refresh (null when no Health providers were wired). */
+  health: HealthRefreshOutcome | null;
+}
+
+export interface HealthRefreshOutcome {
+  rseInputRead: "SUCCEEDED" | "FAILED";
+  rseInputFailureCode: string | null;
+  evidenceStatuses: Array<{ kind: string; status: string }>;
+  calculation: string;
+  calculationFailureCode: string | null;
+  healthScoreId: string | null;
+  score: number | null;
+  dataHubReadAt: string;
+  healthCalculatedAt: string;
 }
 
 interface SourceSummary {
@@ -185,6 +206,7 @@ export async function runRefresh(deps: RefreshDeps, req: RefreshRequest): Promis
       summary?: SourceSummary[];
       dataCurrentThrough?: Date | null;
       hubCorrelation?: string | null;
+      health?: HealthRefreshOutcome | null;
     },
   ): Promise<RefreshResult> => {
     const completedAt = now();
@@ -209,7 +231,7 @@ export async function runRefresh(deps: RefreshDeps, req: RefreshRequest): Promis
         dataCurrentThrough: extra.dataCurrentThrough ?? null,
         operatingPeriodStart,
         operatingPeriodEnd,
-        inputSummaryJson: extra.summary ? JSON.stringify({ sources: extra.summary, warnings }) : warnings.length ? JSON.stringify({ warnings }) : null,
+        inputSummaryJson: extra.summary ? JSON.stringify({ sources: extra.summary, warnings, health: extra.health ?? null }) : warnings.length ? JSON.stringify({ warnings, health: extra.health ?? null }) : null,
         hubCorrelationId: extra.hubCorrelation ?? null,
       },
     });
@@ -255,6 +277,7 @@ export async function runRefresh(deps: RefreshDeps, req: RefreshRequest): Promis
       scheduleStatus: schedule.ok ? "OK" : schedule.status,
       scheduleReason: schedule.ok ? null : schedule.reason,
       warnings,
+      health: extra.health ?? null,
     };
   };
 
@@ -294,7 +317,30 @@ export async function runRefresh(deps: RefreshDeps, req: RefreshRequest): Promis
   const summary = summarizeSources(status);
   const through = computeDataCurrentThrough(summary);
   if (summary.every((s) => s.availability !== "AVAILABLE")) warnings.push("NO_GOVERNED_INPUT_AVAILABLE");
-  return finish("SUCCEEDED", { summary, dataCurrentThrough: through });
+  // Health ingestion (shared by manual and scheduled refresh). A Health problem is recorded and surfaced; it never turns a successful
+  // Data Hub refresh into a failure, and it never runs Stage 4C scoring.
+  let health: HealthRefreshOutcome | null = null;
+  if (deps.health) {
+    try {
+      const h = await runHealthPipeline(db as never, context, deps.health, { at: now() });
+      health = {
+        rseInputRead: h.rseInputs.ok ? "SUCCEEDED" : "FAILED",
+        rseInputFailureCode: h.rseInputs.failure?.code ?? null,
+        evidenceStatuses: h.rseInputs.components.map((c) => ({ kind: c.kind, status: c.status })),
+        calculation: h.calculation.status,
+        calculationFailureCode: h.calculation.status === "FAILED" ? h.calculation.code : null,
+        healthScoreId: h.calculation.status === "FAILED" ? null : h.calculation.healthScoreId,
+        score: h.calculation.status === "FAILED" ? null : h.calculation.score,
+        dataHubReadAt: h.dataHubReadAt,
+        healthCalculatedAt: h.calculation.calculatedAt,
+      };
+      if (!h.rseInputs.ok) warnings.push(`HEALTH_INPUT_READ_FAILED: ${h.rseInputs.failure?.code ?? "UNKNOWN"} (previous Health evidence retained; it ages by its source time)`);
+      if (h.calculation.status === "FAILED") warnings.push(`HEALTH_CALCULATION_FAILED: ${h.calculation.code}`);
+    } catch (e) {
+      warnings.push(`HEALTH_PIPELINE_ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return finish("SUCCEEDED", { summary, dataCurrentThrough: through, health });
 }
 
 /** Retained refresh state with the live-computed next scheduled refresh (so it is correct before any attempt). */

@@ -23,6 +23,7 @@ import { pathToFileURL } from "node:url";
 import { after, before, describe, it } from "node:test";
 import type { DposCompanyContext } from "../../src/lib/dpos/company-context";
 import { DataHubClient } from "../../src/lib/dpos/data-hub-client";
+import { calculateHealth, createDataHubBackorderProvider } from "../../src/lib/dpos/health";
 import { FIXTURE_EVENT_TYPES, fixtureEvent } from "../../src/lib/dpos/fixtures";
 import { enqueueResultsReturnEvent, flushOutbox, summarizeOutbox } from "../../src/lib/dpos/outbox";
 import { getRefreshStatus, runRefresh } from "../../src/lib/dpos/refresh";
@@ -196,6 +197,27 @@ describe("live Data Hub (real DPOS application over HTTP)", { skip }, () => {
       assert.ok(r.quality?.freshnessStatus && r.quality.validationStatus, "freshness + validation metadata");
       assert.ok(r.confidence, "confidence-support metadata");
     }
+  });
+
+  it("Stage 4D: the live Customer Backorder feed drives the Shortage component with Stck# / Class preserved and the Health Score stored", async () => {
+    const provider = createDataHubBackorderProvider(client, { pageSize: 2 });
+    const fetched = await provider.fetch();
+    assert.equal(fetched.ok, true, JSON.stringify(fetched));
+    if (!fetched.ok) return;
+    assert.equal(fetched.input.lines.length, 3);
+    assert.deepEqual(new Set(fetched.input.lines.map((l) => l.parentSku)), new Set(["37053"]), "Stck# is the parent SKU");
+    assert.deepEqual(fetched.input.lines.map((l) => l.childPartOrVariant).sort(), ["10.0", "10.5", "9.00"].sort(), "Class stays the child part / variant (never merged with Stck#)");
+    assert.ok(fetched.input.sourceRefs.some((r) => r.includes("CUSTOMER_BACKORDER_LINE")), "source run identity is carried");
+    const health = await calculateHealth(iam.prisma, ctx, { actorId: "live-proof", role: "MANAGER" }, {
+      at: new Date("2026-10-27T15:00:00Z"),
+      backorder: provider,
+    });
+    const shortage = health.health.components.find((c) => c.key === "SHORTAGE_BACKORDER")!;
+    // Without a company revenue basis the shortage cannot be put on a scale: it is reported unavailable, never scored as zero.
+    assert.equal(shortage.available, false);
+    assert.match(shortage.unavailableReason ?? "", /revenue/i);
+    const detail = shortage.detail as { lines?: number; parts?: number };
+    assert.ok(detail.lines === undefined || detail.lines === 3);
   });
 
   it("manual refresh against the live Data Hub records the attempt and retained timestamps; Data Hub's own schedule agrees (Sunday 02:00 America/Chicago)", async () => {
