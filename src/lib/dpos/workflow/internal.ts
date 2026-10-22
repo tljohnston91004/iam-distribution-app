@@ -232,6 +232,14 @@ export async function recordDecision(tx: Tx, ctx: Ctx, candidateId: string, inpu
 
 // ---- Results Return emission -----------------------------------------------------------------------------------------------
 
+/** Where an operation's events come from: the `originatingSource` audit tag and the operation-key prefix (idempotency). */
+export interface EmitterOrigin {
+  source: string;
+  keyPrefix: string;
+}
+export const WORKFLOW_ORIGIN: EmitterOrigin = { source: "IAM_WORKFLOW_STAGE_4B", keyPrefix: "wf4b" };
+export const SCORING_ORIGIN: EmitterOrigin = { source: "IAM_SCORING_STAGE_4C", keyPrefix: "sc4c" };
+
 export interface EmittedEvent {
   eventType: IamEventType;
   outboxId: string;
@@ -256,12 +264,14 @@ export class Emitter {
     private readonly candidateId: string,
     private readonly actor: WorkflowActor,
     private readonly base: Date,
+    private readonly origin: EmitterOrigin,
   ) {}
 
-  static async open(tx: Tx, ctx: Ctx, candidateId: string, actor: WorkflowActor, requested: Date): Promise<Emitter> {
+  /** `origin` defaults to the Stage 4B workflow; the Stage 4C scoring service passes its own source tag and key prefix. */
+  static async open(tx: Tx, ctx: Ctx, candidateId: string, actor: WorkflowActor, requested: Date, origin: EmitterOrigin = WORKFLOW_ORIGIN): Promise<Emitter> {
     const latest = await tx.dposResultsReturnOutbox.findFirst({ where: { dposCompanyId: ctx.dposCompanyId, candidateId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
     const floor = latest ? latest.createdAt.getTime() + 1 : 0;
-    return new Emitter(tx, ctx, candidateId, actor, new Date(Math.max(requested.getTime(), floor)));
+    return new Emitter(tx, ctx, candidateId, actor, new Date(Math.max(requested.getTime(), floor)), origin);
   }
 
   async emit(eventType: IamEventType, sections: Record<string, Record<string, unknown>>, recordId: string): Promise<EmittedEvent> {
@@ -273,11 +283,11 @@ export class Emitter {
         ...sections,
         auditReceipt: {
           originatingActor: this.actor.actorId,
-          originatingSource: "IAM_WORKFLOW_STAGE_4B",
+          originatingSource: this.origin.source,
           authorizationProvenance: `workflow-role:${this.actor.role}`,
         },
       },
-      operationKey: `wf4b:${eventType}:${recordId}`,
+      operationKey: `${this.origin.keyPrefix}:${eventType}:${recordId}`,
       at,
     });
     const out: EmittedEvent = {

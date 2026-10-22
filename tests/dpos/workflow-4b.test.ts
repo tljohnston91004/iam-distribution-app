@@ -487,7 +487,11 @@ describe("MANAGEMENT: decisions, recommendation vs plan, rejection and suppressi
       await expectCode(returnForReview(f.db, f.ctx, MANAGER, r, { reason: "" }), "REASON_REQUIRED");
       const before = await outboxCount(f.db);
       await returnForReview(f.db, f.ctx, MANAGER, r, { reason: "Need the vendor's position first.", at: at(1) });
-      assert.equal(await outboxCount(f.db), before, "a local review step is not sent to the Data Hub");
+      assert.equal(await outboxCount(f.db), before + 1, "a return for review is published as exactly one dedicated RETURNED_FOR_REVIEW governance event (4C-D6)");
+      const returned = (await payloadsOf(f.db, r, "RETURNED_FOR_REVIEW"))[0]!;
+      assert.equal(returned.management!.decidedBy, MANAGER.actorId);
+      assert.equal(returned.management!.decisionReason, "Need the vendor's position first.");
+      assert.ok(returned.management!.decidedAt);
       const w = await f.db.iamCoreWorkflowState.findUniqueOrThrow({ where: { candidateId: r } });
       assert.equal(w.workflowState, "NEW_CANDIDATE");
       assert.equal(w.reReviewRequired, true);
@@ -1020,8 +1024,11 @@ describe("CONDITION REDUCTION", () => {
       const r = await updateConditionReduction(f.db, f.ctx, OWNER_USER, id, { currentExposure: 500, exposureUnit: "USD", at: at(3) });
       assert.equal(r.conditionReductionStatus, "NOT_YET_MEASURED");
       assert.equal(r.conditionReductionPct, null);
-      assert.equal(r.reductionEventSent, false);
-      assert.equal(await outboxCount(f.db), before, "nothing is sent for an unmeasured reduction");
+      assert.equal(r.reductionEventSent, true, "4C-D7: the non-measurable state is published explicitly");
+      assert.equal(await outboxCount(f.db), before + 1, "exactly one event: a not-measurable state, never a fabricated percentage");
+      const nm = (await payloadsOf(f.db, id, "CONDITION_REDUCTION_UPDATED")).at(-1)!;
+      assert.equal(nm.progress!.conditionReductionState, "NOT_MEASURABLE");
+      assert.equal(nm.progress!.conditionReductionPct, undefined, "no percentage is supplied without a valid baseline");
       let t = await f.db.iamCoreActionTracking.findUniqueOrThrow({ where: { candidateId: id } });
       assert.equal(t.conditionReductionPct, null);
       assert.equal(t.resolutionStatus, "NOT_YET_MEASURED");
@@ -1048,13 +1055,15 @@ describe("CONDITION REDUCTION", () => {
       assert.equal(await f.db.iamCoreProgressUpdate.count({ where: { candidateId: id, kind: "BASELINE" } }), 3, "every baseline change is in the ledger");
     }));
 
-  it("a condition worse than its baseline keeps the negative value, is capped only in the contract copy, and asks for a management decision", () =>
+  it("a condition worse than its baseline keeps the negative value everywhere (never clamped to zero), and asks for a management decision", () =>
     withFixture(async (f) => {
       const id = await startedCandidate(f, { baselineExposure: 1000 });
       const r = await updateConditionReduction(f.db, f.ctx, OWNER_USER, id, { currentExposure: 1300, at: at(3) });
       assert.equal(r.conditionReductionPct, -30);
       assert.equal((await f.db.iamCoreActionTracking.findUniqueOrThrow({ where: { candidateId: id } })).conditionReductionPct, -30);
-      assert.equal((await f.db.iamCoreExecutionState.findUniqueOrThrow({ where: { candidateId: id } })).conditionReductionPct, 0);
+      assert.equal((await f.db.iamCoreExecutionState.findUniqueOrThrow({ where: { candidateId: id } })).conditionReductionPct, -30, "4C-D7: the contract copy is NOT clamped");
+      const worse = (await payloadsOf(f.db, id, "CONDITION_REDUCTION_UPDATED")).at(-1)!;
+      assert.equal(worse.progress!.conditionReductionPct, -30, "the published event carries the negative value");
       assert.deepEqual((await listDecisionRequired(f.db, f.ctx)).map((x) => x.reasonCode).sort(), ["AT_RISK", "CONDITION_WORSENED"], "the worsened condition and the status it causes both need management");
       await updateConditionReduction(f.db, f.ctx, OWNER_USER, id, { currentExposure: 900, at: at(4) });
       assert.equal((await listDecisionRequired(f.db, f.ctx)).length, 0, "improving past the baseline clears the requirement");
@@ -1092,8 +1101,10 @@ describe("RESULTS RETURN: meaningful transitions create outbox events, retries a
     "MANAGEMENT_DECISION_REQUIRED",
     "ACTION_STATUS_CHANGED",
     "MANAGEMENT_DECISION_RESOLVED", // blocker cleared
+    "PAUSE_REQUESTED", // dedicated governance event (4C-D6)
     "MANAGEMENT_DECISION_REQUIRED", // pause requested
     "ACTION_STATUS_CHANGED",
+    "PAUSE_APPROVED", // dedicated governance event (4C-D6)
     "ACTION_PAUSED",
     "MANAGEMENT_DECISION_RESOLVED", // pause decided
     "ACTION_REACTIVATED",
@@ -1181,14 +1192,16 @@ describe("RESULTS RETURN: meaningful transitions create outbox events, retries a
       await attachEvidence(f.db, f.ctx, MANAGER, id, { evidence: [evidence("9")] });
       await returnForReview(f.db, f.ctx, MANAGER, id, { reason: "Need more info", at: at(0, 2) });
       await presentCandidate(f.db, f.ctx, MANAGER, id, { at: at(0, 3) });
-      assert.equal(await outboxCount(f.db), base);
+      assert.equal(await outboxCount(f.db), base + 1, "presenting and attaching evidence create nothing; the return for review is its own governance event");
       const s = await startedCandidate(f, { key: "s" });
       const mark = await outboxCount(f.db);
       await updateProgress(f.db, f.ctx, OWNER_USER, s, { actionCompletionPct: 2, at: at(2) });
       await updateProgress(f.db, f.ctx, OWNER_USER, s, { note: "note only", at: at(2, 1) });
-      await updateConditionReduction(f.db, f.ctx, OWNER_USER, s, { currentExposure: 5, at: at(2, 2) }); // no baseline: not measured
       await evaluateAction(f.db, f.ctx, SYSTEM_ACTOR, s, { now: at(2, 3) });
-      assert.equal(await outboxCount(f.db), mark);
+      assert.equal(await outboxCount(f.db), mark, "no event for a note, a tiny progress change or a status evaluation that changes nothing");
+      // no baseline: the state is published explicitly as NOT_MEASURABLE (4C-D7), never as a made-up percentage
+      await updateConditionReduction(f.db, f.ctx, OWNER_USER, s, { currentExposure: 5, at: at(2, 2) });
+      assert.equal(await outboxCount(f.db), mark + 1);
     }));
 
   it("a failed operation leaves no event, history or audit row behind (single transaction)", () =>

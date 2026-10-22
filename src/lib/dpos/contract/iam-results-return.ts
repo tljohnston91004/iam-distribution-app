@@ -24,7 +24,22 @@ export const IAM_PROVENANCE_CONTRACT_FAMILY = "IAM_RESULTS_RETURN" as const;
  *     stage may still send them);
  *   - OWNER_ACCEPTED may carry a progress section (actionStatus NOT_STARTED).
  */
-export const IAM_RESULTS_RETURN_CONTRACT_REVISION = "1.0-r4b" as const;
+/**
+ * Revision 1.0-r4c (Stage 4C, additive on top of 1.0-r4b; every earlier event stays valid):
+ *   - scoring and ranking publication: event CANDIDATE_SCORED (first score and every re-score from a finalized IAM scoring run) and
+ *     the existing DOMAIN_PRIORITY_CHANGED for governed priority changes; the recommendation section carries the score version, scoring
+ *     run, score breakdown totals, band, emergency-review / Top 2 / forced-review flags, displayed (management) rank and override facts;
+ *   - dedicated governance events PLAN_REVISED, RETURNED_FOR_REVIEW, PAUSE_REQUESTED, PAUSE_APPROVED, PAUSE_DENIED (4C-D6);
+ *   - condition reduction may be NEGATIVE (4C-D7): signed percent, plus an explicit NOT_MEASURABLE state;
+ *   - assignment events may carry stable user identity ids (4C-D5): taskOwnerId / previousTaskOwnerId.
+ *   - explicit current scoring state (Stage 4C closeout 4C-D7): event SCORING_STATE_CHANGED publishes UNSCORED / NOT_RANKABLE (with a
+ *     mandatory reason) when a previously scored candidate stops being rankable, so a consumer never keeps showing an old score or rank as
+ *     current. CANDIDATE_SCORED publishes SCORED again. Historical score events are never edited.
+ *   - transparency fields (closeout 4C-D4 / 4C-D5): mathematicalDomainScore + scoreFlags (CRITICAL_PROTECTED_FROM_BURDEN_DEMOTION),
+ *     additionalEmergencyReviewRequired + emergencyTriggers, rankLockActive.
+ * IAM owns domainScore / domainRank. A consumer (DPOS) may add a separate enterprise rank but never overwrite these.
+ */
+export const IAM_RESULTS_RETURN_CONTRACT_REVISION = "1.0-r4c" as const;
 
 /** Contract versions this build can validate and interpret. Additive evolution only: add, never remove. */
 export const IAM_RESULTS_RETURN_SUPPORTED_VERSIONS = ["1.0"] as const;
@@ -34,7 +49,11 @@ export const IAM_EVENT_TYPES = [
   // Lifecycle
   "CANDIDATE_CREATED",
   "CANDIDATE_RECALCULATED",
+  "CANDIDATE_SCORED",
+  "SCORING_STATE_CHANGED",
   "DOMAIN_PRIORITY_CHANGED",
+  "PLAN_REVISED",
+  "RETURNED_FOR_REVIEW",
   "MANAGEMENT_APPROVED",
   "MANAGEMENT_REJECTED",
   "SUPPRESSED",
@@ -53,6 +72,9 @@ export const IAM_EVENT_TYPES = [
   "CONDITION_REDUCTION_UPDATED",
   "MANAGEMENT_DECISION_REQUIRED",
   "MANAGEMENT_DECISION_RESOLVED",
+  "PAUSE_REQUESTED",
+  "PAUSE_APPROVED",
+  "PAUSE_DENIED",
   "ACTION_PAUSED",
   "ACTION_REACTIVATED",
   "ACTION_BLOCKED",
@@ -106,6 +128,11 @@ export const IAM_FINAL_RESOLUTION_STATES = [
 export const IAM_OUTCOME_STATES = ["MEASURED", "VALIDATED", "NOT_MEASURABLE"] as const;
 /** IAM Functional Specification section 15: High, Moderate, Low or Not Measurable. */
 export const IAM_ATTRIBUTION_CONFIDENCES = ["HIGH", "MODERATE", "LOW", "NOT_MEASURABLE"] as const;
+/** Analysis data confidence of a scored candidate (IAM scoring model). INSUFFICIENT is normally not rankable. */
+export const IAM_DATA_CONFIDENCE_LEVELS = ["HIGH", "MEDIUM", "LOW", "INSUFFICIENT"] as const;
+/** Current scoring state of a candidate (4C-D7). Only SCORED carries a current score and rank. */
+export const IAM_SCORING_STATES = ["SCORED", "UNSCORED", "NOT_RANKABLE"] as const;
+export const IAM_CONDITION_REDUCTION_STATES = ["MEASURED", "NOT_MEASURABLE"] as const;
 export const IAM_REFRESH_KINDS = ["LIFECYCLE_EVENT", "SCHEDULED_WEEKLY", "MANUAL_REFRESH"] as const;
 
 export type IamLifecycleState = (typeof IAM_LIFECYCLE_STATES)[number];
@@ -117,12 +144,14 @@ type FieldType =
   | "datetime"
   | "date"
   | "percent"
+  | "signedPercent"
   | "number"
   | "nonNegNumber"
   | "positiveInt"
   | "boolean"
   | "stringArray"
   | "stringMap"
+  | "numberMap"
   | "enum";
 export type IamFieldSpec = { type: FieldType; values?: readonly string[] };
 
@@ -131,6 +160,8 @@ const LS: IamFieldSpec = { type: "longString" };
 const DT: IamFieldSpec = { type: "datetime" };
 const D: IamFieldSpec = { type: "date" };
 const PCT: IamFieldSpec = { type: "percent" };
+const SPCT: IamFieldSpec = { type: "signedPercent" };
+const NM: IamFieldSpec = { type: "numberMap" };
 const NUM: IamFieldSpec = { type: "number" };
 const NN: IamFieldSpec = { type: "nonNegNumber" };
 const PI: IamFieldSpec = { type: "positiveInt" };
@@ -192,6 +223,49 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     emergencyPriority: B,
     expectedImpact: NUM,
     expectedImpactUnit: S,
+    // ---- Stage 4C scoring and ranking publication (r4c). IAM is authoritative; none of this is ever inferred by a consumer.
+    scoringRunId: S,
+    scoreVersion: S,
+    scoredAt: DT,
+    rawCoreScore: PCT,
+    dataConfidence: E(IAM_DATA_CONFIDENCE_LEVELS),
+    confidenceMultiplier: NN,
+    confidenceAdjustedCoreScore: PCT,
+    uncappedModifierTotal: NUM,
+    cappedModifierTotal: NUM,
+    /** Seven approved factor scores (cash, profitability, inventoryExposure, operationalRisk, customerRevenue, timeSensitivity, actionability). */
+    factorScores: NM,
+    /** The individual modifiers (persistence, deterioration, crossFunctional, strategic, executionBurden, benefitUncertainty). */
+    modifierValues: NM,
+    /** domainRank above is the calculated (system) rank; the displayed / management rank is separate and never overwrites it. */
+    displayedDomainRank: PI,
+    emergencyReviewCandidate: B,
+    emergencyReviewReasons: SA,
+    top2Qualified: B,
+    criticalOutsideTop2: B,
+    forcedReviewRequired: B,
+    forcedReviewReason: LS,
+    priorityOverrideType: S,
+    priorityOverrideBy: S,
+    priorityOverrideReason: LS,
+    priorityOverrideAt: DT,
+    rankLockedUntil: DT,
+    /** false = the rank lock ended or was released; consumers then clear rankLockedUntil. */
+    rankLockActive: B,
+    // ---- closeout 4C-D7: explicit current scoring state. UNSCORED / NOT_RANKABLE carry a reason and NO current score or rank.
+    scoringState: E(IAM_SCORING_STATES),
+    notRankableReason: LS,
+    /** Optional pointer to the last valid score (history stays immutable in the event log; this is convenience metadata only). */
+    lastValidDomainScore: PCT,
+    lastValidDomainRank: PI,
+    lastValidScoredAt: DT,
+    lastValidScoringRunId: S,
+    // ---- closeout 4C-D4: the mathematical score and the governance flags that explain a displayed band.
+    mathematicalDomainScore: PCT,
+    scoreFlags: SA,
+    // ---- closeout 4C-D5: every qualifying trigger is preserved; an additional emergency candidate is flagged for forced review.
+    emergencyTriggers: SA,
+    additionalEmergencyReviewRequired: B,
   },
   management: {
     lifecycleState: E(IAM_LIFECYCLE_STATES),
@@ -206,6 +280,9 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     previousResponsibleDepartment: S,
     taskOwner: S,
     previousTaskOwner: S,
+    /** Stable DPOS user identity ids (4C-D5); names above are display text only. */
+    taskOwnerId: S,
+    previousTaskOwnerId: S,
     targetDate: D,
     ownerResponseAt: DT,
     discussionNote: LS,
@@ -213,7 +290,10 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
   progress: {
     actionStatus: E(IAM_ACTION_STATUSES),
     actionCompletionPct: PCT,
-    conditionReductionPct: PCT,
+    /** Signed (4C-D7): negative means the condition got worse than its baseline. */
+    conditionReductionPct: SPCT,
+    /** NOT_MEASURABLE when the baseline is zero or unavailable; no percentage is then supplied. */
+    conditionReductionState: E(IAM_CONDITION_REDUCTION_STATES),
     remainingExposure: NN,
     remainingExposureUnit: S,
     startedAt: DT,
@@ -228,6 +308,12 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     decisionRequiredCategory: S,
     /** How the requirement was resolved (MANAGEMENT_DECISION_RESOLVED). */
     decisionResolution: LS,
+    // ---- pause governance (4C-D6): PAUSE_REQUESTED / PAUSE_APPROVED / PAUSE_DENIED
+    pauseReason: LS,
+    pauseRequestedBy: S,
+    pauseRequestedAt: DT,
+    expectedPauseDurationDays: PI,
+    pauseReviewDueAt: DT,
   },
   plan: {
     approvedPlanStatus: E(IAM_PLAN_STATUSES),
@@ -237,6 +323,12 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     planApprovedBy: S,
     deviatesFromSystemRecommendation: B,
     deviationReason: LS,
+    // ---- plan revision (4C-D6): PLAN_REVISED
+    planVersion: PI,
+    previousPlanVersion: PI,
+    revisionReason: LS,
+    revisedBy: S,
+    revisedAt: DT,
   },
   outcome: {
     outcomeState: E(IAM_OUTCOME_STATES),
@@ -261,7 +353,7 @@ export const IAM_AUTHORIZED_FIELDS: Record<IamPayloadSection, Record<string, Iam
     targetCompletionDate: D,
     actualCompletionDate: D,
     actionCompletionPct: PCT,
-    conditionReductionPct: PCT,
+    conditionReductionPct: SPCT,
     measuredBusinessImpact: NUM,
     measuredBusinessImpactUnit: S,
     residualExposure: NN,
@@ -300,6 +392,8 @@ export type IamEventSpec = {
   allowedActionStatuses?: readonly IamActionStatus[];
   /** Explicit management-decision-required flag implied by the event type (4B-D2). */
   impliedManagementDecisionRequired?: boolean;
+  /** Groups of "section.field" paths of which at least ONE path in each group must be present. */
+  requiredOneOf?: readonly (readonly string[])[];
 };
 
 export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
@@ -326,10 +420,53 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
       "recommendation.domainRank",
     ],
   },
+  // Stage 4C: one event per candidate per finalized IAM scoring run in which the published score, rank, band or review flags
+  // changed (and the first time a candidate is scored). Historical score events are immutable; current state reflects the latest.
+  CANDIDATE_SCORED: {
+    family: "LIFECYCLE",
+    sections: ["recommendation"],
+    required: [
+      "source.iamSourceRunId",
+      "source.iamSourceVersion",
+      "recommendation.domainScore",
+      "recommendation.domainRank",
+      "recommendation.priorityBand",
+      "recommendation.scoreVersion",
+      "recommendation.scoringRunId",
+      "recommendation.scoredAt",
+    ],
+  },
+  // Explicit current scoring state (4C-D7): a previously scored candidate is no longer rankable. Carries a reason and no score or rank.
+  SCORING_STATE_CHANGED: {
+    family: "LIFECYCLE",
+    sections: ["recommendation"],
+    required: [
+      "source.iamSourceRunId",
+      "source.iamSourceVersion",
+      "recommendation.scoringState",
+      "recommendation.notRankableReason",
+      "recommendation.scoringRunId",
+      "recommendation.scoredAt",
+    ],
+  },
+  // A governed change of the displayed priority without a new calculation (override, rank lock, emergency confirmation,
+  // manual tie-break) or a rank-only change. From revision 1.0-r4c a calculated rank is no longer mandatory because an
+  // emergency designation can apply to a candidate that is not ranked.
   DOMAIN_PRIORITY_CHANGED: {
     family: "LIFECYCLE",
     sections: ["recommendation"],
-    required: ["source.iamSourceRunId", "recommendation.domainRank"],
+    required: ["source.iamSourceRunId"],
+  },
+  PLAN_REVISED: {
+    family: "LIFECYCLE",
+    sections: ["plan"],
+    required: ["plan.planVersion", "plan.revisionReason", "plan.revisedBy"],
+  },
+  RETURNED_FOR_REVIEW: {
+    family: "LIFECYCLE",
+    sections: ["management"],
+    required: ["management.decidedBy", "management.decidedAt", "management.decisionReason"],
+    impliedLifecycleState: "CANDIDATE",
   },
   MANAGEMENT_APPROVED: {
     family: "LIFECYCLE",
@@ -405,7 +542,9 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
   CONDITION_REDUCTION_UPDATED: {
     family: "ACTION_PROGRESS",
     sections: ["progress"],
-    required: ["progress.conditionReductionPct"],
+    // A percentage (negative = deterioration, 4C-D7) or the explicit NOT_MEASURABLE state.
+    required: [],
+    requiredOneOf: [["progress.conditionReductionPct", "progress.conditionReductionState"]],
   },
   MANAGEMENT_DECISION_REQUIRED: {
     family: "ACTION_PROGRESS",
@@ -418,6 +557,21 @@ export const IAM_EVENT_SPECS: Record<IamEventType, IamEventSpec> = {
     sections: ["progress"],
     required: ["progress.decisionResolution"],
     impliedManagementDecisionRequired: false,
+  },
+  PAUSE_REQUESTED: {
+    family: "ACTION_PROGRESS",
+    sections: ["progress"],
+    required: ["progress.pauseReason", "progress.pauseRequestedBy"],
+  },
+  PAUSE_APPROVED: {
+    family: "ACTION_PROGRESS",
+    sections: ["progress", "management"],
+    required: ["management.decidedBy", "management.decidedAt", "management.decisionReason"],
+  },
+  PAUSE_DENIED: {
+    family: "ACTION_PROGRESS",
+    sections: ["progress", "management"],
+    required: ["management.decidedBy", "management.decidedAt", "management.decisionReason"],
   },
   ACTION_PAUSED: {
     family: "ACTION_PROGRESS",
@@ -564,9 +718,26 @@ function coerceField(
       if (raw < 0 || raw > 100) return bad("OUT_OF_RANGE", `${path} must be between 0 and 100`);
       return { keep: true, value: raw };
     }
+    case "signedPercent": {
+      if (typeof raw !== "number" || !Number.isFinite(raw)) return bad("INVALID_TYPE", `${path} must be a finite number`);
+      if (raw > 100) return bad("OUT_OF_RANGE", `${path} must not exceed 100 (a negative value means the condition worsened)`);
+      return { keep: true, value: raw };
+    }
     case "number": {
       if (typeof raw !== "number" || !Number.isFinite(raw)) return bad("INVALID_TYPE", `${path} must be a finite number`);
       return { keep: true, value: raw };
+    }
+    case "numberMap": {
+      if (!isPlainObject(raw)) return bad("INVALID_TYPE", `${path} must be an object of numbers`);
+      const keys = Object.keys(raw);
+      if (keys.length > MAX_ARRAY) return bad("OUT_OF_RANGE", `${path} exceeds ${MAX_ARRAY} entries`);
+      const out: Record<string, number> = {};
+      for (const key of keys.sort()) {
+        const v = raw[key];
+        if (typeof v !== "number" || !Number.isFinite(v)) return bad("INVALID_TYPE", `${path}.${key} must be a finite number`);
+        out[key] = v;
+      }
+      return Object.keys(out).length ? { keep: true, value: out } : { keep: false };
     }
     case "nonNegNumber": {
       if (typeof raw !== "number" || !Number.isFinite(raw)) return bad("INVALID_TYPE", `${path} must be a finite number`);
@@ -882,6 +1053,32 @@ export function validateIamResultsReturn(body: unknown): IamValidationResult {
       if (authorized[section][field] === undefined) {
         issues.push({ path, code: "REQUIRED_FIELD_MISSING", message: `${path} is required for ${eventType}` });
       }
+    }
+    for (const group of spec.requiredOneOf ?? []) {
+      if (!group.some((path) => { const [s, fld] = path.split(".") as [IamPayloadSection, string]; return authorized[s][fld] !== undefined; })) {
+        issues.push({ path: group.join(" | "), code: "REQUIRED_FIELD_MISSING", message: `${eventType} requires at least one of: ${group.join(", ")}` });
+      }
+    }
+    const scoringState = authorized.recommendation.scoringState;
+    if (eventType === "SCORING_STATE_CHANGED" && scoringState !== undefined && scoringState !== "UNSCORED" && scoringState !== "NOT_RANKABLE") {
+      issues.push({ path: "recommendation.scoringState", code: "STATE_CONFLICT", message: "SCORING_STATE_CHANGED publishes UNSCORED or NOT_RANKABLE; a candidate that is scored again is published by CANDIDATE_SCORED" });
+    }
+    if (eventType === "SCORING_STATE_CHANGED") {
+      for (const field of ["domainScore", "domainRank", "priorityBand", "displayedDomainRank", "uncappedDomainScore"]) {
+        if (authorized.recommendation[field] !== undefined) {
+          issues.push({ path: `recommendation.${field}`, code: "STATE_CONFLICT", message: `An UNSCORED / NOT_RANKABLE candidate carries no current ${field}; never fabricate one (use the lastValid* metadata for history)` });
+        }
+      }
+    }
+    if (eventType === "CANDIDATE_SCORED" && scoringState !== undefined && scoringState !== "SCORED") {
+      issues.push({ path: "recommendation.scoringState", code: "STATE_CONFLICT", message: "CANDIDATE_SCORED publishes a SCORED candidate" });
+    }
+    if (authorized.progress.conditionReductionState === "NOT_MEASURABLE" && authorized.progress.conditionReductionPct !== undefined) {
+      issues.push({
+        path: "progress.conditionReductionPct",
+        code: "STATE_CONFLICT",
+        message: "A NOT_MEASURABLE condition reduction carries no percentage; never fabricate one",
+      });
     }
     const lifecycle = authorized.management.lifecycleState;
     if (spec.impliedLifecycleState && lifecycle !== undefined && lifecycle !== spec.impliedLifecycleState) {

@@ -25,6 +25,7 @@ import { DatabaseSync } from "node:sqlite";
 export const BASELINE_MIGRATION = "20260724000000_v1_5_baseline";
 export const STAGE_4A_MIGRATION = "20261021100000_stage4a_core_integration_foundation";
 export const STAGE_4B_MIGRATION = "20261021140000_stage4b_workflow";
+export const STAGE_4C_MIGRATION = "20261021200000_stage4c_scoring";
 
 export interface GovernedMigrateOptions {
   /** Absolute path of the SQLite file (created when absent). */
@@ -427,6 +428,11 @@ export function stage4bTableNames(repoRoot: string): string[] {
   return migrationTableNames(repoRoot, STAGE_4B_MIGRATION);
 }
 
+/** Tables created by the Stage 4C migration (derived from its SQL; never hard-coded). */
+export function stage4cTableNames(repoRoot: string): string[] {
+  return migrationTableNames(repoRoot, STAGE_4C_MIGRATION);
+}
+
 /** Stage 4A can only be reversed after Stage 4B has been reversed (4B tables reference 4A tables). */
 export async function governedRollbackStage4A(opts: RollbackOptions): Promise<RollbackResult> {
   const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
@@ -437,7 +443,16 @@ export async function governedRollbackStage4A(opts: RollbackOptions): Promise<Ro
 }
 
 export async function governedRollbackStage4B(opts: RollbackOptions): Promise<RollbackResult> {
+  const applied = appliedMigrationNames(path.resolve(opts.databaseFile));
+  if (applied?.includes(STAGE_4C_MIGRATION)) {
+    return { ok: false, reason: "Stage 4C is applied; roll Stage 4C back first (rollback-4c), then Stage 4B." };
+  }
   return rollbackStage(opts, STAGE_4B_MIGRATION, "4b", () => true);
+}
+
+/** Stage 4C (scoring and ranking) tables only. V1.5, Stage 4A and Stage 4B tables are untouched. */
+export async function governedRollbackStage4C(opts: RollbackOptions): Promise<RollbackResult> {
+  return rollbackStage(opts, STAGE_4C_MIGRATION, "4c", () => true);
 }
 
 async function rollbackStage(opts: RollbackOptions, migration: string, label: string, countTable: (table: string) => boolean): Promise<RollbackResult> {

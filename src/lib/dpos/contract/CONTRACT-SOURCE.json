@@ -4,9 +4,9 @@
   "source": {
     "repository": "DPOSDH (Decision Priority Data Hub)",
     "path": "packages/shared/src/iam-results-return.ts",
-    "commit": "191b1d16321ac1ac6d170ad8d89189520edfa42f",
-    "gitBlob": "bd844d935fd2420a9df2ca60693f3d8069c94d7c",
-    "sha256": "881aadfc5ce6c62a93e0389f505e36a2485ad5bfe9929b3c607d759a1edd91c5"
+    "commit": "b4ed9e1e518a3427d5d02590705181af94566487",
+    "gitBlob": "d62c52c0a9100b5365b6de4edc46188878dd0685",
+    "sha256": "864a1f3f087192f2bac432b66e1c3712dec6df7cd200143a6c63d30476ef9929"
   },
   "note": "Vendored verbatim until @dpos/shared is published as a package. Do not edit iam-results-return.ts here; change it in the DPOS repository and run `npm run dpos:sync-contract -- --write`. `--check` (and the drift test) fail when the vendored copy differs from the pin or from the DPOS source."
 }

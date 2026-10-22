@@ -122,3 +122,32 @@ department -> task owner -> owner acceptance (or Request Discussion) -> active a
 - Production identity mapping for actors (who is a manager / task owner) is deferred; the API takes an explicit `WorkflowActor`.
 - Product Owner review corrections (4B-D1..D7): the Data Hub preserves `actionStartedAt` / `actionCompletedAt` when later events omit them; management decisions are explicit (`MANAGEMENT_DECISION_REQUIRED` then `MANAGEMENT_DECISION_RESOLVED`, emitted by IAM whenever the requirement is resolved); `NOT_STARTED` is a first-class contract status (reported by `OWNER_ACCEPTED`); Completed History is execution completion only (`executionCompleted = true`, `closeoutCompleted = false`, candidate not closed, no outcome written; new evidence waits for the later closeout stage); a pause never extends the target dates (reactivation re-evaluates against the original target); `domainScore` / `domainRank` are deferred to Stage 4C and stay null (supplying them is refused). Contract revision `1.0-r4b`, vendored hash in `CONTRACT-SOURCE.json`.
 - Tests: `npm run test:dpos-4a` runs the whole `tests/dpos` suite (4A + 4B, including live Data Hub tests).
+## 11. Stage 4C: deterministic scoring, ranking and priority publication (src/lib/dpos/scoring)
+
+Additive migration `20261021200000_stage4c_scoring` (6 tables: scoring inputs, scoring runs, score results, priority governance
+ledger, forced reviews, emergency reviews; append-only, vocabulary and closed-candidate triggers; `rollback-4c` removes it,
+refused while Stage 4C data exists). Scoring version `IAM_PRIORITY_SCORING_V1`, configuration `IAM_PRIORITY_CONFIG_V1`
+(`scoring/config.ts` holds every approved number as data; the whole configuration and its SHA-256 are stored with every run).
+
+- The IAM 100-point model: Cash 30, Profitability 15, Inventory Exposure 15, Operational Risk 15, Customer & Revenue 10,
+  Time Sensitivity 10, Actionability 5; confidence multipliers (High 1.00 / Medium 0.95 / Low 0.85; Insufficient is not ranked and
+  is routed to data investigation); six modifiers with caps of +15 / -15 (individual, uncapped and capped values are preserved);
+  final score = confidence-adjusted core + capped modifiers, clamped to 0..100; bands Critical 85+, High 70, Moderate 55, Watch 40.
+  Ratio bands are compared with exact integer arithmetic. There is no hidden factor: unknown input fields are refused.
+- `runScoring` is one governed transaction per company: it scores every OPEN canonical candidate in the new-candidate pool,
+  orders them (the approved 12-step tie-break, then explicit manual management tie-break, then a flagged deterministic id
+  fallback), assigns the calculated `domainRank` and the displayed (management) rank, selects the Top 2 (qualified >= 70, never
+  filled, new candidates only), raises emergency-review candidates (triggers A-E; management confirms), forced reviews
+  (Critical outside Top 2, repeated rejection, additional emergency, suppression re-review, data investigation, possible double
+  counting) and writes the Results Return events. A repeated run key returns the stored run.
+- IAM is authoritative for `domainScore` and `domainRank`; DPOS never overwrites them. Overrides, rank locks, strategic
+  authorizations and manual tie-breaks are append-only governance records (stable DPOS user id, role, reason, time); they take
+  effect at the next scoring run and never edit the calculated values. Rank locks last at most one weekly cycle; scoring still runs.
+- Publication: `CANDIDATE_SCORED` (first score, or a changed score / rank / band) and `DOMAIN_PRIORITY_CHANGED` (override, lock,
+  flags, displayed rank, emergency confirmation / decline / clearing), plus the dedicated 4B governance events `PLAN_REVISED`,
+  `RETURNED_FOR_REVIEW`, `PAUSE_REQUESTED`, `PAUSE_APPROVED`, `PAUSE_DENIED`. Condition reduction is signed and never clamped; a zero or
+  missing baseline is published as `NOT_MEASURABLE`. Contract revision `1.0-r4c`.
+- Not in this stage: the Inventory Management Health Score, the IAM Decision Board V4 / any scoring UI, the full Recommended
+  Action Plan UI, closeout and learning logic, DPOS enterprise ranking, and any RSE/PRE business-logic change.
+- Tests: `tests/dpos/scoring-pure.test.ts` (engine), `scoring-run.test.ts` (governed runs, ranking, governance, database guards) and
+  `live-scoring-4c.test.ts` (real Data Hub). `npm run test:dpos-4a` runs the whole `tests/dpos` suite.

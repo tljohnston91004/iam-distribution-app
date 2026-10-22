@@ -966,6 +966,13 @@ model IamCoreCandidate {
   decisionRequired   IamCoreDecisionRequired[]
   pauseRequests      IamCorePauseRequest[]
   blockers           IamCoreBlocker[]
+  // Stage 4C scoring relations (no columns on this table)
+  scoringInputs      IamCoreScoringInput[]
+  scoreResults       IamCoreScoreResult[]
+  displayChanges     IamCoreDisplayChange[]
+  priorityGovernance IamCorePriorityGovernance[]
+  forcedReviews      IamCoreForcedReview[]
+  emergencyReviews   IamCoreEmergencyReview[]
   contributorAuthorizations IamCoreContributorAuthorization[]
 
   @@index([dposCompanyId, lifecycleState])
@@ -1436,4 +1443,219 @@ model IamCoreContributorAuthorization {
 
   @@index([candidateId, userId])
   @@map("iam_core_contributor_authorizations")
+}
+// ======================================================================================================================
+// Stage 4C: deterministic IAM scoring, ranking, confidence, modifiers, emergency review and domain-priority governance.
+// ADDITIVE ONLY. Nothing here changes a V1.5 table or any Stage 4A / 4B table. The original system recommendation stays
+// immutable; scores, ranks and governed priority changes live in these tables and are published through Results Return.
+// ======================================================================================================================
+
+/// Immutable, versioned scoring facts for one candidate (what the engine scores). New facts = a new row (inputVersion + 1).
+model IamCoreScoringInput {
+  inputId        String   @id @default(uuid()) @map("input_id")
+  candidateId    String   @map("candidate_id")
+  candidate      IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId  String   @map("dpos_company_id")
+  inputVersion   Int      @map("input_version")
+  /// Validated scoring facts (cash, profitability, inventory, operational risk, customer, time, actionability, confidence, modifiers).
+  inputsJson     String   @map("inputs_json")
+  inputsHash     String   @map("inputs_hash")
+  /// Where the facts came from (Data Hub snapshot / package references, evidence refs).
+  sourceRefsJson String?  @map("source_refs_json")
+  recordedBy     String   @map("recorded_by")
+  recordedAt     DateTime @map("recorded_at")
+
+  @@unique([candidateId, inputVersion])
+  @@index([dposCompanyId, candidateId])
+  @@map("iam_core_scoring_inputs")
+}
+
+/// One governed scoring run. Immutable once written. `runKey` makes a repeated request idempotent.
+model IamCoreScoringRun {
+  scoringRunId        String   @id @default(uuid()) @map("scoring_run_id")
+  dposCompanyId       String   @map("dpos_company_id")
+  runKey              String?  @map("run_key")
+  runAt               DateTime @map("run_at")
+  scoringVersion      String   @map("scoring_version")
+  configVersion       String   @map("config_version")
+  configHash          String   @map("config_hash")
+  /// Full scoring configuration used (thresholds, tables, caps) so any run can be explained and reproduced.
+  configJson          String   @map("config_json")
+  /// FINALIZED
+  status              String
+  requestedBy         String   @map("requested_by")
+  requestedByRole     String   @map("requested_by_role")
+  sourceRefsJson      String?  @map("source_refs_json")
+  candidatesConsidered Int     @map("candidates_considered")
+  candidatesRanked    Int      @map("candidates_ranked")
+  candidatesExcluded  Int      @map("candidates_excluded")
+  /// Ordered Top 2 candidate ids (0, 1 or 2 entries; never filled).
+  top2Json            String   @map("top2_json")
+  /// 4C-D1: the company IANA time zone and the company-local Sunday-Saturday operating week (YYYY-MM-DD of the Sunday) of this run.
+  companyTimeZone     String?  @map("company_time_zone")
+  operatingWeekStart  String?  @map("operating_week_start")
+  summaryJson         String?  @map("summary_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  results             IamCoreScoreResult[]
+
+  @@unique([dposCompanyId, runKey])
+  @@index([dposCompanyId, runAt])
+  @@map("iam_core_scoring_runs")
+}
+
+/// One candidate's outcome in one scoring run (ranked with a full breakdown, or excluded with a reason). Immutable.
+model IamCoreScoreResult {
+  scoreResultId       String   @id @default(uuid()) @map("score_result_id")
+  scoringRunId        String   @map("scoring_run_id")
+  run                 IamCoreScoringRun @relation(fields: [scoringRunId], references: [scoringRunId], onDelete: Restrict)
+  candidateId         String   @map("candidate_id")
+  candidate           IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  dposCompanyId       String   @map("dpos_company_id")
+  groupedConditionKey String   @map("grouped_condition_key")
+  /// RANKED, EXCLUDED
+  outcome             String
+  exclusionReason     String?  @map("exclusion_reason")
+  exclusionDetail     String?  @map("exclusion_detail")
+  inputId             String?  @map("input_id")
+  inputVersion        Int?     @map("input_version")
+  workflowState       String?  @map("workflow_state")
+  rawCoreScore        Float?   @map("raw_core_score")
+  dataConfidence      String?  @map("data_confidence")
+  confidenceMultiplier Float?  @map("confidence_multiplier")
+  confidenceAdjustedCoreScore Float? @map("confidence_adjusted_core_score")
+  uncappedModifierTotal Float? @map("uncapped_modifier_total")
+  cappedModifierTotal Float?   @map("capped_modifier_total")
+  uncappedDomainScore Float?   @map("uncapped_domain_score")
+  /// Final calculated 0..100 domain score (before any governed management override).
+  domainScore         Float?   @map("domain_score")
+  priorityBand        String?  @map("priority_band")
+  /// Calculated (system) rank and the displayed (management) rank. The calculated rank is never overwritten.
+  calculatedRank      Int?     @map("calculated_rank")
+  displayedRank       Int?     @map("displayed_rank")
+  previousCalculatedRank Int?  @map("previous_calculated_rank")
+  effectiveScore      Float?   @map("effective_score")
+  top2Qualified       Boolean  @default(false) @map("top2_qualified")
+  emergencyReviewCandidate Boolean @default(false) @map("emergency_review_candidate")
+  criticalOutsideTop2 Boolean  @default(false) @map("critical_outside_top2")
+  forcedReviewRequired Boolean @default(false) @map("forced_review_required")
+  /// Full explainability: every factor, rationale, modifier, cap, tie-break position and review reason.
+  breakdownJson       String?  @map("breakdown_json")
+  tieBreakJson        String?  @map("tie_break_json")
+  /// 4C-D1: company-local operating week (the Sunday, YYYY-MM-DD) in which this result was produced.
+  operatingWeekStart  String?  @map("operating_week_start")
+  /// 4C-D4: the mathematical final score before Critical protection, and the governance flags (for example CRITICAL_PROTECTED_FROM_BURDEN_DEMOTION).
+  mathematicalDomainScore Float? @map("mathematical_domain_score")
+  scoreFlagsJson      String?  @map("score_flags_json")
+  /// 4C-D7: SCORED (ranked) / UNSCORED / NOT_RANKABLE with the reason; publishedScoringState is what the Data Hub was last told.
+  scoringState        String?  @map("scoring_state")
+  scoringStateReason  String?  @map("scoring_state_reason")
+  publishedScoringState String? @map("published_scoring_state")
+  /// 4C-D5: this result belongs to an additional (second or later) emergency review candidate that needs forced management review.
+  additionalEmergencyReviewRequired Boolean @default(false) @map("additional_emergency_review_required")
+  /// CANDIDATE_SCORED / SCORING_STATE_CHANGED / DOMAIN_PRIORITY_CHANGED when this result was published, else null.
+  publishedEventType  String?  @map("published_event_type")
+  publishedOutboxId   String?  @map("published_outbox_id")
+  scoredAt            DateTime @map("scored_at")
+
+  @@unique([scoringRunId, candidateId])
+  @@index([candidateId, scoredAt])
+  @@index([dposCompanyId, scoredAt])
+  @@map("iam_core_score_results")
+}
+
+/// Append-only governance ledger: overrides, rank locks, manual tie-breaks, strategic authorization, emergency decisions,
+/// data investigations and forced-review actions. Every row records a stable DPOS user id (4C-D5), a role and a reason.
+model IamCorePriorityGovernance {
+  governanceId  String   @id @default(uuid()) @map("governance_id")
+  batchId       String?  @map("batch_id")
+  dposCompanyId String   @map("dpos_company_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// PRIORITY_OVERRIDE, OVERRIDE_REVOKED, RANK_LOCK, RANK_UNLOCK, MANUAL_TIEBREAK, STRATEGIC_AUTHORIZED, STRATEGIC_REVOKED,
+  /// EMERGENCY_CONFIRMED, EMERGENCY_DECLINED, EMERGENCY_CLEARED, DATA_INVESTIGATION_ROUTED, FORCED_REVIEW_RESOLVED
+  actionType    String   @map("action_type")
+  actorId       String   @map("actor_id")
+  actorRole     String   @map("actor_role")
+  reason        String
+  /// Override points (signed) for PRIORITY_OVERRIDE; the strategic level / locked rank / tie-break position live in detail.
+  points        Float?
+  /// MINOR, MATERIAL (overrides)
+  magnitudeClass String? @map("magnitude_class")
+  detailJson    String?  @map("detail_json")
+  effectiveAt   DateTime @map("effective_at")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([candidateId, actionType, effectiveAt])
+  @@index([dposCompanyId, actionType])
+  @@map("iam_core_priority_governance")
+}
+
+/// Management review forced by the scoring rules (critical outside Top 2, repeated rejection, insufficient data, ...).
+model IamCoreForcedReview {
+  reviewId      String   @id @default(uuid()) @map("review_id")
+  dposCompanyId String   @map("dpos_company_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// CRITICAL_OUTSIDE_TOP2, REPEATED_REJECTION, ADDITIONAL_EMERGENCY, SUPPRESSION_RE_REVIEW, DATA_INVESTIGATION, POSSIBLE_DOUBLE_COUNTING
+  reasonCode    String   @map("reason_code")
+  /// OPEN, RESOLVED
+  status        String   @default("OPEN")
+  detail        String?
+  raisedAt      DateTime @map("raised_at")
+  raisedByRunId String?  @map("raised_by_run_id")
+  resolvedAt    DateTime? @map("resolved_at")
+  resolvedBy    String?  @map("resolved_by")
+  resolutionBasis String? @map("resolution_basis")
+  resolution    String?
+
+  @@index([dposCompanyId, status])
+  @@index([candidateId, reasonCode, status])
+  @@map("iam_core_forced_reviews")
+}
+
+/// An emergency review candidate raised by the triggers A-E. A candidate is NOT an emergency until management confirms it.
+model IamCoreEmergencyReview {
+  emergencyReviewId String @id @default(uuid()) @map("emergency_review_id")
+  dposCompanyId String   @map("dpos_company_id")
+  candidateId   String   @map("candidate_id")
+  candidate     IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// CANDIDATE, CONFIRMED, DECLINED, WITHDRAWN, CLEARED
+  status        String   @default("CANDIDATE")
+  triggersJson  String   @map("triggers_json")
+  raisedRunId   String?  @map("raised_run_id")
+  raisedAt      DateTime @map("raised_at")
+  /// True when another emergency was already confirmed for the company (the extra one needs a forced review).
+  additionalEmergency Boolean @default(false) @map("additional_emergency")
+  decidedBy     String?  @map("decided_by")
+  decidedAt     DateTime? @map("decided_at")
+  decisionReason String? @map("decision_reason")
+
+  @@index([dposCompanyId, status])
+  @@index([candidateId, status])
+  @@map("iam_core_emergency_reviews")
+}
+
+/// 4C-D8: immediate governance changes (rank lock, manual tie-break, management promote/demote of displayed priority). Each row is the
+/// displayed-priority state published right after the governed change, WITHOUT a new calculation: the calculated score and rank in
+/// iam_core_score_results are never rewritten. Append-only; the next scoring run compares against the newest of this table and the results.
+model IamCoreDisplayChange {
+  displayChangeId     String   @id @default(uuid()) @map("display_change_id")
+  dposCompanyId       String   @map("dpos_company_id")
+  candidateId         String   @map("candidate_id")
+  candidate           IamCoreCandidate @relation(fields: [candidateId], references: [candidateId], onDelete: Restrict)
+  /// The governance ledger row that caused the change.
+  governanceId        String   @map("governance_id")
+  /// The score result whose calculated values were reused (the calculation itself is untouched).
+  basedOnScoreResultId String  @map("based_on_score_result_id")
+  /// Displayed rank / Top 2 / override / rank lock after the change (PublishedState).
+  stateJson           String   @map("state_json")
+  publishedEventType  String?  @map("published_event_type")
+  publishedOutboxId   String?  @map("published_outbox_id")
+  createdAt           DateTime @map("created_at")
+
+  @@index([candidateId, createdAt])
+  @@index([dposCompanyId, createdAt])
+  @@map("iam_core_display_changes")
 }

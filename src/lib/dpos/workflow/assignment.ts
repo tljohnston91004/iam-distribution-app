@@ -76,7 +76,7 @@ export async function acceptOwnership(db: PrismaClient, ctx: Ctx, actor: Workflo
     await em.emit(
       "OWNER_ACCEPTED",
       {
-        assignment: { taskOwner: ownership.taskOwnerName ?? ownership.taskOwnerId, responsibleDepartment: ownership.responsibleDepartment, ownerResponseAt: at.toISOString() },
+        assignment: { taskOwner: ownership.taskOwnerName ?? ownership.taskOwnerId, taskOwnerId: ownership.taskOwnerId, responsibleDepartment: ownership.responsibleDepartment, ownerResponseAt: at.toISOString() },
         // Accepted but not begun: NOT_STARTED is a governed status (4B-D3), never null.
         progress: { actionStatus: ACTION_STATUS_TO_CONTRACT.NOT_STARTED },
       },
@@ -99,7 +99,7 @@ export async function requestDiscussion(db: PrismaClient, ctx: Ctx, actor: Workf
     const { onBehalf } = requireOwnerOrManager(actor, facts, "Requesting discussion");
     const note = requireText(input.note, "A discussion note");
     const row = await recordAssignmentEvent(env, candidateId, { kind: "OWNER_DISCUSSION_REQUESTED", toOwnerId: ownership.taskOwnerId, toOwnerName: ownership.taskOwnerName, toDepartment: ownership.responsibleDepartment, note, onBehalf });
-    await em.emit("OWNER_DISCUSSION_REQUESTED", { assignment: { taskOwner: ownership.taskOwnerName ?? ownership.taskOwnerId, discussionNote: note } }, row.assignmentEventId);
+    await em.emit("OWNER_DISCUSSION_REQUESTED", { assignment: { taskOwner: ownership.taskOwnerName ?? ownership.taskOwnerId, taskOwnerId: ownership.taskOwnerId, discussionNote: note } }, row.assignmentEventId);
     const flag = await raiseDecisionRequired(env, candidateId, "OWNER_DISCUSSION", note, row.assignmentEventId);
     return { assignmentEventId: row.assignmentEventId, decisionRequiredRaised: flag.raised, flagId: flag.flagId, assignmentKept: true };
   });
@@ -177,6 +177,24 @@ export async function reassign(db: PrismaClient, ctx: Ctx, actor: WorkflowActor,
       planVersion: planAfterVersion,
       detail: { departmentChanged, ownerChanged, from: { department: prev.responsibleDepartment, ownerId: prev.taskOwnerId }, targetDate: isoDate(tracking?.targetResolution ?? null) },
     });
+    if (input.planChange) {
+      // Dedicated governance event (4C-D6): a plan revision is never buried in a generic status or assignment change.
+      await env.em.emit(
+        "PLAN_REVISED",
+        {
+          plan: {
+            planVersion: planAfterVersion ?? undefined,
+            previousPlanVersion: planBefore?.planVersion ?? undefined,
+            revisionReason: reason,
+            revisedBy: actor.actorId,
+            revisedAt: at.toISOString(),
+            approvedPlanRef: planId ?? undefined,
+            approvedPlanStatus: "APPROVED",
+          },
+        },
+        planId ?? decision.decisionId,
+      );
+    }
     return { decisionId: decision.decisionId, departmentChanged, ownerChanged, planVersion: planAfterVersion, planRevised: !!input.planChange };
   });
 }

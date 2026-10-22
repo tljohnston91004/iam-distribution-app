@@ -6,13 +6,16 @@
  * It is defined ONLY when a valid quantitative baseline exists (a finite number greater than zero) and a valid current
  * exposure (finite, not negative). Otherwise the result is NOT_YET_MEASURED and no percentage is produced - never a
  * guess, a default or a zero. Action completion is a different measure and is never combined with this one.
+ *
+ * Stage 4C (4C-D7): the percentage is SIGNED and never clamped. Baseline 100 -> current 80 is +20%; baseline 100 -> current 120 is -20%
+ * (deterioration). A zero or missing baseline is NOT measurable: the Data Hub receives conditionReductionState NOT_MEASURABLE, no percentage.
  */
 export type ConditionReduction =
   | {
       status: "MEASURED";
       /** Exact formula result rounded to 2 decimals. Negative when the condition is WORSE than the baseline. */
       pct: number;
-      /** The same value limited to 0..100 for the shared contract (its percent type cannot express a negative value). */
+      /** The same signed value for the shared contract (4C-D7: the contract carries negative values; nothing is clamped to zero). */
       contractPct: number;
       worseThanBaseline: boolean;
     }
@@ -27,5 +30,5 @@ export function computeConditionReduction(baselineExposure: number | null | unde
   if (typeof currentExposure !== "number" || !Number.isFinite(currentExposure) || currentExposure < 0) return notMeasured("The current exposure is not a valid non-negative number.");
   const raw = ((baselineExposure - currentExposure) / baselineExposure) * 100;
   const pct = Math.round(raw * 100) / 100;
-  return { status: "MEASURED", pct, contractPct: Math.min(100, Math.max(0, pct)), worseThanBaseline: pct < 0 };
+  return { status: "MEASURED", pct, contractPct: pct, worseThanBaseline: pct < 0 };
 }

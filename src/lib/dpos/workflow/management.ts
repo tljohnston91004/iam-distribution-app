@@ -209,13 +209,14 @@ export async function escalateCandidate(db: PrismaClient, ctx: Ctx, actor: Workf
 
 export async function returnForReview(db: PrismaClient, ctx: Ctx, actor: WorkflowActor, candidateId: string, input: { reason: string; at?: Date }) {
   return runOperation(db, ctx, actor, candidateId, { operation: "RETURNED_FOR_REVIEW", at: input.at }, async (env) => {
-    const { tx, wf, candidate, at } = env;
+    const { tx, wf, candidate, at, em } = env;
     requireManagement(actor, "Returning a candidate for review");
     const reason = requireText(input.reason, "A review/discussion note");
     assertWorkflowState(wf, ["PRESENTED"], "Returning a candidate for review");
     const decision = await recordDecision(tx, ctx, candidateId, { decisionType: "RETURN_FOR_REVIEW", reason, at, actor, groupedConditionKey: candidate.groupedConditionKey });
-    // Local workflow step: the Data Hub still sees a CANDIDATE, so there is nothing to send.
     await transition(tx, wf, "NEW_CANDIDATE", { operation: "RETURNED_FOR_REVIEW", actor, at, reason, patch: { reReviewRequired: true, reReviewReason: "RETURNED_FOR_REVIEW", reReviewRaisedAt: at } });
+    // Dedicated governance event (4C-D6). The Data Hub lifecycle stays CANDIDATE; the event records who returned it, when and why.
+    await em.emit("RETURNED_FOR_REVIEW", { management: { decidedBy: actor.actorId, decidedAt: at.toISOString(), decisionReason: reason } }, decision.decisionId);
     return { decisionId: decision.decisionId };
   });
 }

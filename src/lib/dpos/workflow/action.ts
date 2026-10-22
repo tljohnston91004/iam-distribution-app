@@ -400,6 +400,14 @@ export async function updateConditionReduction(db: PrismaClient, ctx: Ctx, actor
       );
       await tx.iamCoreActionTracking.update({ where: { candidateId }, data: { lastReductionEventPct: reduction.contractPct } });
       eventSent = true;
+    } else if (reduction.status !== "MEASURED" && recordId) {
+      // 4C-D7: a zero or missing baseline never produces a made-up percentage; the Data Hub is told the state explicitly.
+      await em.emit(
+        "CONDITION_REDUCTION_UPDATED",
+        { progress: { conditionReductionState: "NOT_MEASURABLE", remainingExposure: current ?? undefined, remainingExposureUnit: unit ?? undefined } },
+        recordId,
+      );
+      eventSent = true;
     }
     if (reduction.worseThanBaseline) {
       await raiseDecisionRequired(env, candidateId, "CONDITION_WORSENED", `The condition is worse than its baseline (${reduction.pct}% reduction; current ${current} vs baseline ${baseline}).`);
@@ -449,6 +457,20 @@ export async function requestPause(db: PrismaClient, ctx: Ctx, actor: WorkflowAc
         status: "REQUESTED",
       },
     });
+    // Dedicated governance event (4C-D6) in addition to the Management Decision Required flag.
+    await env.em.emit(
+      "PAUSE_REQUESTED",
+      {
+        progress: {
+          pauseReason: reason,
+          pauseRequestedBy: actor.actorId,
+          pauseRequestedAt: at.toISOString(),
+          expectedPauseDurationDays: input.expectedDurationDays ?? undefined,
+          reactivationCondition: pause.reactivationCondition ?? undefined,
+        },
+      },
+      pause.pauseRequestId,
+    );
     await raiseDecisionRequired(env, candidateId, "PAUSE_REQUEST", `Pause requested: ${reason}`, pause.pauseRequestId);
     const change = await applyStatusEvaluation(env, { trigger: "PAUSE_REQUESTED" });
     return { pauseRequestId: pause.pauseRequestId, status: change.to };
@@ -491,6 +513,15 @@ export async function decidePause(db: PrismaClient, ctx: Ctx, actor: WorkflowAct
       groupedConditionKey: candidate.groupedConditionKey,
       detail: { pauseRequestId: pause.pauseRequestId, requestedBy: pause.requestedBy, reviewDueAt: reviewDueAt?.toISOString() ?? null },
     });
+    // Dedicated governance event (4C-D6): the decision itself is never carried only by a generic status change.
+    await env.em.emit(
+      approve ? "PAUSE_APPROVED" : "PAUSE_DENIED",
+      {
+        management: { decidedBy: actor.actorId, decidedAt: at.toISOString(), decisionReason: reason },
+        progress: { pauseRequestedBy: pause.requestedBy, pauseReason: pause.reason, ...(reviewDueAt ? { pauseReviewDueAt: reviewDueAt.toISOString() } : {}) },
+      },
+      pause.pauseRequestId,
+    );
     const change = await applyStatusEvaluation(env, {
       trigger: approve ? "PAUSE_APPROVED" : "PAUSE_DENIED",
       reasonText: approve ? `Pause approved: ${pause.reason}` : undefined,
@@ -649,7 +680,7 @@ export async function completeAction(db: PrismaClient, ctx: Ctx, actor: Workflow
           actionStatus: "COMPLETED",
           actionCompletionPct: 100,
           completedAt: at.toISOString(),
-          conditionReductionPct: reduction.contractPct ?? undefined,
+          ...(reduction.status === "MEASURED" ? { conditionReductionPct: reduction.contractPct } : { conditionReductionState: "NOT_MEASURABLE" }),
           remainingExposure: t.currentExposure ?? undefined,
           remainingExposureUnit: t.exposureUnit ?? undefined,
         },

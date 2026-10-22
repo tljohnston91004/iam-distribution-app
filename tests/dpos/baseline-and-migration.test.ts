@@ -10,14 +10,17 @@ import {
   BASELINE_MIGRATION,
   STAGE_4A_MIGRATION,
   STAGE_4B_MIGRATION,
+  STAGE_4C_MIGRATION,
   governedMigrate,
   governedRollbackStage4A,
   governedRollbackStage4B,
+  governedRollbackStage4C,
   legacyFingerprint,
   legacyTableNames,
   listUserTables,
   stage4aTableNames,
   stage4bTableNames,
+  stage4cTableNames,
   sqliteUrl,
 } from "../../src/lib/dpos/migrate/governed-migrate";
 import { REPO_ROOT } from "./helpers";
@@ -67,7 +70,7 @@ describe("branch and V1.5 baseline preservation", () => {
       assert.equal(current.get(name), block, `V1.5 ${name} was modified`);
     }
     const added = [...current.keys()].filter((k) => !baseline.has(k));
-    assert.ok(added.length >= 28 && added.every((k) => /Dpos|IamCore/.test(k)), `unexpected new definitions: ${added.join(", ")}`);
+    assert.ok(added.length >= 34 && added.every((k) => /Dpos|IamCore/.test(k)), `unexpected new definitions: ${added.join(", ")}`);
   });
 
   it("the Stage 4A migration SQL only creates objects (no ALTER/DROP/DELETE/UPDATE on V1.5 tables)", () => {
@@ -99,17 +102,38 @@ describe("branch and V1.5 baseline preservation", () => {
     assert.equal(created.length, 13);
     assert.ok(created.every((t) => !legacy.includes(t) && !stage4aTableNames(REPO_ROOT).includes(t)));
   });
+
+  it("the Stage 4C migration SQL is additive: new scoring tables only; it never touches V1.5, Stage 4A or Stage 4B tables", () => {
+    const sql = fs.readFileSync(path.join(REPO_ROOT, "prisma", "migrations", STAGE_4C_MIGRATION, "migration.sql"), "utf8");
+    const legacy = legacyTableNames(REPO_ROOT);
+    assert.doesNotMatch(sql, /\bALTER\s+TABLE\b/i);
+    assert.doesNotMatch(sql, /\bDROP\s+TABLE\b/i);
+    assert.doesNotMatch(sql, /\bDROP\s+TRIGGER\b/i);
+    for (const t of legacy) {
+      assert.doesNotMatch(sql, new RegExp(`(INSERT\\s+INTO|UPDATE|DELETE\\s+FROM|REFERENCES|FROM)\\s+"?${t}"?\\b`, "i"), `must not touch V1.5 table ${t}`);
+    }
+    for (const t of [...stage4aTableNames(REPO_ROOT), ...stage4bTableNames(REPO_ROOT)]) {
+      assert.doesNotMatch(sql, new RegExp(`(CREATE\\s+TABLE|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+"?${t}"?\\b`, "i"), `must not rewrite earlier-stage table ${t}`);
+    }
+    const created = stage4cTableNames(REPO_ROOT);
+    assert.equal(created.length, 7);
+    assert.deepEqual(
+      [...created].sort(),
+      ["iam_core_display_changes", "iam_core_emergency_reviews", "iam_core_forced_reviews", "iam_core_priority_governance", "iam_core_score_results", "iam_core_scoring_inputs", "iam_core_scoring_runs"],
+    );
+    assert.ok(created.every((t) => !legacy.includes(t)));
+  });
 });
 
 describe("governed migration", () => {
-  it("creates a new database with V1.5 + Stage 4A + Stage 4B, records history, and is rerun-safe", async () => {
+  it("creates a new database with V1.5 + Stage 4A + Stage 4B + Stage 4C, records history, and is rerun-safe", async () => {
     const dir = tmp();
     const file = path.join(dir, "iam.db");
     const first = await governedMigrate({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
     assert.equal(first.ok, true, JSON.stringify(first));
     assert.equal(first.mode, "NEW_DATABASE");
     const tables = listUserTables(file);
-    for (const t of [...legacyTableNames(REPO_ROOT), ...stage4aTableNames(REPO_ROOT), ...stage4bTableNames(REPO_ROOT)]) assert.ok(tables.includes(t), `missing table ${t}`);
+    for (const t of [...legacyTableNames(REPO_ROOT), ...stage4aTableNames(REPO_ROOT), ...stage4bTableNames(REPO_ROOT), ...stage4cTableNames(REPO_ROOT)]) assert.ok(tables.includes(t), `missing table ${t}`);
     const second = await governedMigrate({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
     assert.equal(second.ok, true);
     assert.equal(second.mode, "ALREADY_CURRENT");
@@ -117,7 +141,7 @@ describe("governed migration", () => {
     const db = new DatabaseSync(file, { readOnly: true });
     const names = (db.prepare("SELECT migration_name n FROM _prisma_migrations ORDER BY migration_name").all() as Array<{ n: string }>).map((r) => r.n);
     db.close();
-    assert.deepEqual(names, [BASELINE_MIGRATION, STAGE_4A_MIGRATION, STAGE_4B_MIGRATION]);
+    assert.deepEqual(names, [BASELINE_MIGRATION, STAGE_4A_MIGRATION, STAGE_4B_MIGRATION, STAGE_4C_MIGRATION]);
   });
 
   it("adopts a legacy `db push` V1.5 database without changing a single legacy row, then rolls back cleanly", async () => {
@@ -149,7 +173,15 @@ describe("governed migration", () => {
     assert.equal(await after.iamCoreCandidate.count(), 0, "legacy runs are NOT promoted to authoritative candidates");
     await after.$disconnect();
 
-    // Stage 4A cannot be rolled back while Stage 4B is applied; 4B goes first, then 4A.
+    // Reverse order: 4C first, then 4B, then 4A. Each earlier stage is refused while a later one is applied.
+    const refused4b = await governedRollbackStage4B({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
+    assert.equal(refused4b.ok, false);
+    assert.match(String(refused4b.reason), /Stage 4C is applied/);
+    const rollback4c = await governedRollbackStage4C({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
+    assert.equal(rollback4c.ok, true, JSON.stringify(rollback4c));
+    assert.equal(rollback4c.legacyPreserved, true);
+    for (const t of stage4cTableNames(REPO_ROOT)) assert.ok(!listUserTables(file).includes(t), `${t} should be gone after the 4C rollback`);
+    for (const t of stage4bTableNames(REPO_ROOT)) assert.ok(listUserTables(file).includes(t), `${t} (Stage 4B) must survive the 4C rollback`);
     const refused4a = await governedRollbackStage4A({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
     assert.equal(refused4a.ok, false);
     assert.match(String(refused4a.reason), /Stage 4B is applied/);
@@ -186,6 +218,7 @@ describe("governed migration", () => {
     const dir = tmp();
     const file = path.join(dir, "iam.db");
     await governedMigrate({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
+    assert.equal((await governedRollbackStage4C({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") })).ok, true, "4C is reversed first");
     const db = new DatabaseSync(file);
     db.exec(`INSERT INTO iam_core_candidates (candidate_id, dpos_company_id, grouped_condition_key, lifecycle_state, original_created_at, created_at, updated_at) VALUES ('c1', 'co', 'K', 'CANDIDATE', 0, 0, 0)`);
     db.exec(`INSERT INTO iam_core_workflow_states (candidate_id, dpos_company_id, workflow_state, grouped_condition_key, created_at, updated_at) VALUES ('c1', 'co', 'NEW_CANDIDATE', 'K', 0, 0)`);
@@ -197,6 +230,29 @@ describe("governed migration", () => {
     assert.equal(allowed.ok, true, JSON.stringify(allowed));
     assert.ok(!listUserTables(file).includes("iam_core_workflow_states"));
     assert.ok(listUserTables(file).includes("iam_core_candidates"), "the Stage 4A candidate table is untouched by the 4B rollback");
+  });
+
+  it("refuses a Stage 4C rollback over scoring data unless data loss is explicitly allowed, then removes only the 4C tables", async () => {
+    const dir = tmp();
+    const file = path.join(dir, "iam.db");
+    await governedMigrate({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
+    const db = new DatabaseSync(file);
+    db.exec(`INSERT INTO iam_core_candidates (candidate_id, dpos_company_id, grouped_condition_key, lifecycle_state, original_created_at, created_at, updated_at) VALUES ('c1', 'co', 'K', 'CANDIDATE', 0, 0, 0)`);
+    db.exec(`INSERT INTO iam_core_scoring_inputs (input_id, candidate_id, dpos_company_id, input_version, inputs_json, inputs_hash, recorded_by, recorded_at) VALUES ('i1', 'c1', 'co', 1, '{}', 'h', 'user-1', 0)`);
+    db.close();
+    const refused = await governedRollbackStage4C({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk") });
+    assert.equal(refused.ok, false);
+    assert.ok(listUserTables(file).includes("iam_core_scoring_inputs"), "nothing is dropped when the guard refuses");
+    const allowed = await governedRollbackStage4C({ databaseFile: file, repoRoot: REPO_ROOT, backupDir: path.join(dir, "bk"), allowDataLoss: true });
+    assert.equal(allowed.ok, true, JSON.stringify(allowed));
+    assert.ok(!listUserTables(file).includes("iam_core_scoring_inputs"));
+    assert.ok(listUserTables(file).includes("iam_core_workflow_states"), "the Stage 4B workflow table is untouched by the 4C rollback");
+    assert.ok(listUserTables(file).includes("iam_core_candidates"), "the Stage 4A candidate table is untouched by the 4C rollback");
+    // The data-loss rollback took a backup that still holds the scoring row.
+    assert.ok(allowed.backupFile && fs.existsSync(allowed.backupFile));
+    const bk = new DatabaseSync(allowed.backupFile, { readOnly: true });
+    assert.equal((bk.prepare("SELECT COUNT(*) c FROM iam_core_scoring_inputs").get() as { c: number }).c, 1);
+    bk.close();
   });
 
   it("a dry run changes nothing", async () => {

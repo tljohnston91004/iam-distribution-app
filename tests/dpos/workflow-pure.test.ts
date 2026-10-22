@@ -78,12 +78,31 @@ describe("condition reduction formula", () => {
     assert.equal(computeConditionReduction(3, 2).pct, 33.33);
   });
 
-  it("keeps a negative value when the condition got worse, and clamps only the contract copy", () => {
+  it("keeps a negative value when the condition got worse and never clamps it to zero (4C-D7)", () => {
     const r = computeConditionReduction(1000, 1200);
     assert.equal(r.status, "MEASURED");
     assert.equal(r.pct, -20);
-    assert.equal(r.contractPct, 0);
+    assert.equal(r.contractPct, -20, "the contract copy carries the same signed value");
     assert.equal(r.worseThanBaseline, true);
+  });
+
+  it("matches the approved examples: 100 -> 80 = +20%, 100 -> 120 = -20%, no change = 0%", () => {
+    assert.equal(computeConditionReduction(100, 80).pct, 20);
+    assert.equal(computeConditionReduction(100, 120).pct, -20);
+    assert.equal(computeConditionReduction(100, 120).contractPct, -20);
+    const same = computeConditionReduction(100, 100);
+    assert.equal(same.status, "MEASURED");
+    assert.equal(same.pct, 0);
+    assert.equal(same.worseThanBaseline, false);
+  });
+
+  it("a zero or missing baseline is non-measurable: no percentage is fabricated", () => {
+    for (const b of [0, null, undefined]) {
+      const r = computeConditionReduction(b as never, 50);
+      assert.equal(r.status, "NOT_YET_MEASURED");
+      assert.equal(r.pct, null);
+      assert.equal(r.contractPct, null);
+    }
   });
 
   it("is Not Yet Measured - and invents NO percentage - without a valid quantitative baseline", () => {

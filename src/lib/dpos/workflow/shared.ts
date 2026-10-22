@@ -195,7 +195,7 @@ export async function applyAssignment(
     if (ownerChanged && ownerId) {
       await em.emit(
         "TASK_OWNER_ASSIGNED",
-        { assignment: { taskOwner: ownerName ?? ownerId, previousTaskOwner: prev?.taskOwnerName ?? prev?.taskOwnerId ?? undefined, responsibleDepartment: department, targetDate } },
+        { assignment: { taskOwner: ownerName ?? ownerId, previousTaskOwner: prev?.taskOwnerName ?? prev?.taskOwnerId ?? undefined, taskOwnerId: ownerId, previousTaskOwnerId: prev?.taskOwnerId ?? undefined, responsibleDepartment: department, targetDate } },
         `${row.assignmentEventId}:owner`,
       );
     }
@@ -208,7 +208,7 @@ export async function applyAssignment(
       const row = await ledger("OWNER_ASSIGNED", { kind: "OWNER_ASSIGNED", fromOwnerId: prev?.taskOwnerId ?? null, toOwnerId: ownerId, toOwnerName: ownerName, toDepartment: department });
       await em.emit(
         "TASK_OWNER_ASSIGNED",
-        { assignment: { taskOwner: ownerName ?? ownerId, previousTaskOwner: prev?.taskOwnerName ?? prev?.taskOwnerId ?? undefined, responsibleDepartment: department, targetDate } },
+        { assignment: { taskOwner: ownerName ?? ownerId, previousTaskOwner: prev?.taskOwnerName ?? prev?.taskOwnerId ?? undefined, taskOwnerId: ownerId, previousTaskOwnerId: prev?.taskOwnerId ?? undefined, responsibleDepartment: department, targetDate } },
         row.assignmentEventId,
       );
     }
